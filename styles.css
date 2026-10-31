@@ -784,26 +784,23 @@ mark { background: rgba(233, 199, 102, .5); color: inherit; border-radius: 3px; 
 .ornament span:last-child { background: linear-gradient(270deg, transparent, var(--gold-400)); }
 .ornament i { font-style: normal; }
 
-/* "Read in: English letters ▾" — opens Reading options */
-.read-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 18px;
-  height: 36px;
-  padding: 0 8px 0 14px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: #fff;
-  font-size: 13.5px;
+/* A− / A+ in the hymn's top bar */
+.font-btn { font-weight: 700; font-size: 15px; color: var(--ink-2); }
+.font-btn--big { font-size: 19px; }
+.font-btn sup { font-size: .6em; margin-left: 1px; }
+
+/* Reading choices on the hymn itself */
+.read-in { margin-top: 18px; }
+.read-in__label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
   color: var(--muted);
-  box-shadow: var(--shadow-sm);
-  transition: background .15s, transform .15s;
 }
-.read-pill strong { color: var(--blue-800); font-weight: 700; }
-.read-pill .ic { width: 16px; height: 16px; color: var(--muted); transform: rotate(90deg); }
-.read-pill:hover { background: var(--bg-soft); }
-.read-pill:active { transform: scale(.97); }
+.read-in .pron__chips { justify-content: center; }
 
 .pron__chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip {

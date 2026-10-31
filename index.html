@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Noto+Sans+Oriya:wght@400;600;800&family=Noto+Sans+Telugu:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=4">
+  <link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
 
@@ -93,7 +93,7 @@
         <div class="container">
           <div class="hero">
             <p class="eyebrow">Preferred language</p>
-            <h2 class="h-title" tabindex="-1" data-focus>Choose your language</h2>
+            <h2 class="h-title" tabindex="-1" data-focus>Choose your language for singing</h2>
             <p class="h-sub">తెలుగు · ଓଡ଼ିଆ · English · हिन्दी · मराठी · বাংলা</p>
           </div>
           <div id="resume"></div>
@@ -173,7 +173,8 @@
               <button class="icon-btn" id="shareBtn" type="button" aria-label="Share this hymn">
                 <svg class="ic" aria-hidden="true"><use href="#i-share"/></svg>
               </button>
-              <button class="icon-btn aa-btn" type="button" data-sheet aria-label="Reading options">Aa</button>
+              <button class="icon-btn font-btn" type="button" data-font="-1" aria-label="Smaller text">A<sup>−</sup></button>
+              <button class="icon-btn font-btn font-btn--big" type="button" data-font="1" aria-label="Larger text">A<sup>+</sup></button>
             </div>
           </div>
         </header>
@@ -211,9 +212,9 @@
       <div class="sheet__row">
         <span class="sheet__label">Text size</span>
         <div class="stepper">
-          <button type="button" id="fontDown" aria-label="Smaller text">A−</button>
+          <button type="button" data-font="-1" aria-label="Smaller text">A−</button>
           <output id="fontVal">100%</output>
-          <button type="button" id="fontUp" aria-label="Larger text">A+</button>
+          <button type="button" data-font="1" aria-label="Larger text">A+</button>
         </div>
       </div>
 
@@ -228,8 +229,8 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="songs.js?v=4"></script>
-  <script src="pronounce.js?v=4"></script>
-  <script src="app.js?v=4"></script>
+  <script src="songs.js?v=5"></script>
+  <script src="pronounce.js?v=5"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>

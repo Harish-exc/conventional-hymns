@@ -93,8 +93,6 @@
     prev: $("#prevSong"),
     next: $("#nextSong"),
     pos: $("#songPos"),
-    fontDown: $("#fontDown"),
-    fontUp: $("#fontUp"),
     fontVal: $("#fontVal"),
     resume: $("#resume"),
     sheet: $("#sheet"),
@@ -638,10 +636,12 @@
     });
     if (!(s.verses || []).length && s.chorus) body += chorusHtml(text(s.chorus), chorusLabel(t));
 
+    // Reading choices shown right on the hymn — one tap, no menu.
     const readPill = !own ? "" : `
-      <button class="read-pill" type="button" data-sheet lang="en">
-        Read in <strong lang="${t ? t.lang : "en"}">${esc(t ? t.label : "Original")}</strong>${icon("chevron")}
-      </button>`;
+      <div class="read-in" role="group" aria-label="Read in">
+        <span class="read-in__label" lang="en">Read in</span>
+        <div class="pron__chips">${pronChips(own, t)}</div>
+      </div>`;
 
     el.lyrics.lang = t ? t.lang : lang.code;
     el.lyrics.innerHTML = `
@@ -660,6 +660,13 @@
     updateFavUi();
     if (!keepScroll) scroller("song").scrollTop = 0;
   }
+
+  // Original + every other script, the current choice highlighted.
+  const pronChips = (own, t) =>
+    [{ id: "off", label: "Original", lang: "en" }, ...PRON_TARGETS.filter((p) => p.id !== own)].map((p) => {
+      const on = (t ? t.id : "off") === p.id;
+      return `<button class="chip${on ? " is-on" : ""}" type="button" data-pron="${p.id}" lang="${p.lang}" aria-pressed="${on}">${esc(p.label)}</button>`;
+    }).join("");
 
   const chorusHtml = (html, label) =>
     `<div class="chorus"><span class="chorus__label">${esc(label)}</span><p class="chorus__text">${html}</p></div>`;
@@ -701,7 +708,7 @@
       <button class="resume" type="button" data-resume>
         <span class="resume__icon">${icon("book")}</span>
         <span class="resume__text">
-          <span class="resume__label">Continue reading</span>
+          <span class="resume__label">Continue singing</span>
           <span class="resume__title" lang="${t ? t.lang : lang.code}">${esc(shown(song.title, lang.code))}</span>
           <span class="resume__meta">Hymn ${song.number} · ${esc(lang.native)} · ${esc(lang.name)}</span>
         </span>
@@ -727,13 +734,7 @@
   function renderSheet() {
     const own = Pronounce.scriptOfLang(state.lang);
     el.readRow.hidden = !own;
-    if (own) {
-      const t = pronTarget();
-      el.sheetPron.innerHTML = [{ id: "off", label: "Original", lang: "en" }, ...PRON_TARGETS.filter((p) => p.id !== own)].map((p) => {
-        const on = (t ? t.id : "off") === p.id;
-        return `<button class="chip${on ? " is-on" : ""}" type="button" data-pron="${p.id}" lang="${p.lang}" aria-pressed="${on}">${esc(p.label)}</button>`;
-      }).join("");
-    }
+    if (own) el.sheetPron.innerHTML = pronChips(own, pronTarget());
     el.fontVal.textContent = Math.round(state.scale * 100) + "%";
     el.fsRow.hidden = !document.fullscreenEnabled;
     el.fsToggle.setAttribute("aria-checked", String(!!document.fullscreenElement));
@@ -792,8 +793,9 @@
 
   function applyScale() {
     pages.song.style.setProperty("--scale", state.scale);
-    el.fontDown.disabled = state.scale <= 0.8;
-    el.fontUp.disabled = state.scale >= 1.6;
+    document.querySelectorAll("[data-font]").forEach((b) => {
+      b.disabled = Number(b.dataset.font) < 0 ? state.scale <= 0.8 : state.scale >= 1.6;
+    });
     el.fontVal.textContent = Math.round(state.scale * 100) + "%";
   }
   function setScale(d) {
@@ -902,7 +904,7 @@
       if (item) go({ page: "song", lang: state.lang, index: Number(item.dataset.i) }, "push");
     });
 
-    // Continue reading
+    // Continue singing
     el.resume.addEventListener("click", (e) => { if (e.target.closest("[data-resume]")) resumeReading(); });
 
     // Reading options
@@ -919,12 +921,16 @@
       el.fsToggle.setAttribute("aria-checked", String(!!document.fullscreenElement)));
 
     // Song view
+    el.lyrics.addEventListener("click", (e) => {
+      const chip = e.target.closest("[data-pron]");
+      if (chip) setPron(chip.dataset.pron);
+    });
     el.favBtn.addEventListener("click", toggleFav);
     el.shareBtn.addEventListener("click", shareSong);
     el.prev.addEventListener("click", () => changeSong(-1));
     el.next.addEventListener("click", () => changeSong(1));
-    el.fontDown.addEventListener("click", () => setScale(-0.1));
-    el.fontUp.addEventListener("click", () => setScale(0.1));
+    document.querySelectorAll("[data-font]").forEach((b) =>
+      b.addEventListener("click", () => setScale(Number(b.dataset.font) * 0.1)));
     onSwipe(scroller("song"), (dir) => changeSong(dir === "left" ? 1 : -1));
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") keepAwake(state.page === "song");
