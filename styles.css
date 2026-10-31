@@ -244,6 +244,44 @@ button:disabled { cursor: default; }
 }
 .splash.is-ready .splash__rays { animation: fadeIn 1.4s ease .6s forwards, spin 90s linear infinite; }
 
+/* Fine white rays turning the other way, for depth */
+.splash__rays--fine {
+  inset: -120%;
+  background: repeating-conic-gradient(from 6deg, rgba(255, 255, 255, .07) 0deg 1deg, rgba(255, 255, 255, 0) 1deg 7deg);
+}
+.splash.is-ready .splash__rays--fine { animation: fadeIn 1.4s ease .9s forwards, spin 150s linear infinite reverse; }
+
+/* A soft golden beam of light from the top */
+.splash__beam {
+  position: absolute;
+  top: -12%;
+  left: 50%;
+  width: min(130vw, 960px);
+  height: 78%;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse 50% 60% at 50% 0%, rgba(246, 227, 161, .24) 0%, rgba(246, 227, 161, .07) 45%, rgba(246, 227, 161, 0) 72%);
+  opacity: 0;
+  pointer-events: none;
+}
+.splash.is-ready .splash__beam { animation: fadeIn 1.2s ease .2s forwards, beam 4s ease-in-out 1.4s infinite alternate; }
+@keyframes beam { from { opacity: .7; } to { opacity: 1; } }
+
+/* Twinkling stars (created by app.js) */
+.splash__stars { position: absolute; inset: 0; pointer-events: none; }
+.star {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: var(--s);
+  height: var(--s);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 6px rgba(255, 255, 255, .8);
+  opacity: 0;
+}
+.splash.is-ready .star { animation: twinkle var(--t) ease-in-out var(--d) infinite; }
+@keyframes twinkle { 0%, 100% { opacity: 0; transform: scale(.6); } 50% { opacity: var(--o); transform: scale(1); } }
+
 /* Gold sparkles drifting upward (created by app.js) */
 .splash__sparks { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 .spark {
@@ -375,6 +413,18 @@ button:disabled { cursor: default; }
   transform-origin: right;
 }
 .splash__rule span:last-child { background: linear-gradient(270deg, transparent, var(--gold-300)); transform-origin: left; }
+.splash__rule span { position: relative; width: clamp(70px, 24vw, 150px); }
+.splash__rule span::after {
+  content: "";
+  position: absolute;
+  top: -2.5px;
+  width: 6px;
+  height: 6px;
+  background: var(--gold-300);
+  transform: rotate(45deg);
+}
+.splash__rule span:first-child::after { left: -3px; }
+.splash__rule span:last-child::after { right: -3px; }
 
 .splash.is-ready .splash__frame { animation: frameIn 1s var(--ease-out) .1s forwards; }
 .splash.is-ready .splash__glow  { animation: fadeIn .8s ease forwards, glow 3.2s ease-in-out .8s infinite alternate; }
@@ -415,7 +465,7 @@ button:disabled { cursor: default; }
 @keyframes frameIn  { to { opacity: 1; transform: none; } }
 @keyframes titleGlow {
   from { text-shadow: 0 2px 0 rgba(0, 0, 0, .25), 0 10px 30px rgba(0, 0, 0, .25); }
-  to   { text-shadow: 0 2px 0 rgba(0, 0, 0, .25), 0 0 28px rgba(255, 255, 255, .55); }
+  to   { text-shadow: 0 2px 0 rgba(0, 0, 0, .25), 0 0 22px rgba(255, 255, 255, .45), 0 0 46px rgba(246, 227, 161, .55); }
 }
 @keyframes grow { to { transform: scaleX(1); } }
 

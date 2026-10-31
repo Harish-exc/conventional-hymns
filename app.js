@@ -455,6 +455,23 @@
   // Telugu → Telugu letters, English → English letters, Hindi/Marathi → Devanagari, …
   const PRON_OF_LANG = { te: "te", or: "or", en: "roman", hi: "dev", mr: "dev", bn: "bn" };
 
+  // The singing-language page is worded in the language picked on page 2.
+  const UI_TEXT = {
+    en: { eyebrow: "Preferred language", title: "Choose your language for singing", languages: "languages", hymn: "hymn", hymns: "hymns",
+          reading: "Reading in", section: "Languages", recent: "Recent", cont: "Continue singing", hymnNo: "Hymn" },
+    te: { eyebrow: "ఇష్టమైన భాష", title: "పాడటానికి మీ భాషను ఎంచుకోండి", languages: "భాషలు", hymn: "కీర్తన", hymns: "కీర్తనలు",
+          reading: "లిపి:", section: "భాషలు", recent: "ఇటీవలి", cont: "పాడటం కొనసాగించండి", hymnNo: "కీర్తన" },
+    or: { eyebrow: "ପସନ୍ଦର ଭାଷା", title: "ଗାଇବା ପାଇଁ ଆପଣଙ୍କ ଭାଷା ବାଛନ୍ତୁ", languages: "ଭାଷା", hymn: "ଗୀତ", hymns: "ଗୀତ",
+          reading: "ଲିପି:", section: "ଭାଷାସମୂହ", recent: "ସାମ୍ପ୍ରତିକ", cont: "ଗାଇବା ଜାରି ରଖନ୍ତୁ", hymnNo: "ଗୀତ" },
+    hi: { eyebrow: "पसंदीदा भाषा", title: "गाने के लिए अपनी भाषा चुनें", languages: "भाषाएँ", hymn: "भजन", hymns: "भजन",
+          reading: "लिपि:", section: "भाषाएँ", recent: "हाल का", cont: "गाना जारी रखें", hymnNo: "भजन" },
+    mr: { eyebrow: "आवडती भाषा", title: "गाण्यासाठी तुमची भाषा निवडा", languages: "भाषा", hymn: "गीत", hymns: "गीते",
+          reading: "लिपी:", section: "भाषा", recent: "अलीकडील", cont: "गाणे सुरू ठेवा", hymnNo: "गीत" },
+    bn: { eyebrow: "পছন্দের ভাষা", title: "গান গাওয়ার জন্য আপনার ভাষা বেছে নিন", languages: "ভাষা", hymn: "গান", hymns: "গান",
+          reading: "লিপি:", section: "ভাষাসমূহ", recent: "সাম্প্রতিক", cont: "গান চালিয়ে যান", hymnNo: "গান" }
+  };
+  const ui = () => UI_TEXT[state.coverLang] || UI_TEXT.en;
+
   // Each language's name as people write it in each script (shown on the language cards).
   const NAMES_IN_SCRIPT = {
     te:  { te: "తెలుగు", or: "ఒడియా", en: "ఇంగ్లీష్", hi: "హిందీ", mr: "మరాఠీ", bn: "బెంగాలీ" },
@@ -475,6 +492,13 @@
      Languages
      ========================================================= */
   function renderLanguages() {
+    const u = ui();
+    const uiLang = UI_TEXT[state.coverLang] ? state.coverLang : "en";
+    [["#langEyebrow", u.eyebrow], ["#langTitle", u.title], ["#langSection", u.section]].forEach(([sel, text]) => {
+      const node = $(sel);
+      node.textContent = text;
+      node.lang = uiLang;
+    });
     el.langGrid.innerHTML = BOOK.languages.map((l, i) => {
       const n = (BOOK.songs[l.code] || []).length;
       // The language's name as it is written in the script chosen on page 2
@@ -490,8 +514,8 @@
             ${reads}
             <span class="lang-card__en">${esc(l.name)}</span>
           </span>
-          <span class="lang-card__count">${icon("book")}${n} ${n === 1 ? "hymn" : "hymns"}</span>
-          <span class="lang-card__badge">Recent</span>
+          <span class="lang-card__count" lang="${uiLang}">${icon("book")}${n} ${n === 1 ? u.hymn : u.hymns}</span>
+          <span class="lang-card__badge" lang="${uiLang}">${esc(u.recent)}</span>
           <span class="lang-card__go" aria-hidden="true">${icon("chevron")}</span>
         </button>`;
     }).join("");
@@ -501,8 +525,8 @@
     const total = BOOK.languages.reduce((sum, l) => sum + (BOOK.songs[l.code] || []).length, 0);
     const reading = PRON_TARGETS.find((p) => p.id === state.pron);
     $("#heroStats").innerHTML =
-      `<span><b>${BOOK.languages.length}</b> languages</span><span><b>${total}</b> hymns</span>` +
-      (reading ? `<span class="hero__reading">Reading in <b lang="${reading.lang}">${esc(reading.label)}</b></span>` : "");
+      `<span lang="${uiLang}"><b>${BOOK.languages.length}</b> ${esc(u.languages)}</span><span lang="${uiLang}"><b>${total}</b> ${esc(u.hymns)}</span>` +
+      (reading ? `<span class="hero__reading" lang="${uiLang}">${esc(u.reading)} <b lang="${reading.lang}">${esc(reading.label)}</b></span>` : "");
   }
 
   function markRecent() {
@@ -811,9 +835,9 @@
       <button class="resume" type="button" data-resume>
         <span class="resume__icon">${icon("book")}</span>
         <span class="resume__text">
-          <span class="resume__label">Continue singing</span>
+          <span class="resume__label" lang="${UI_TEXT[state.coverLang] ? state.coverLang : "en"}">${esc(ui().cont)}</span>
           <span class="resume__title" lang="${t ? t.lang : lang.code}">${esc(shown(song.title, lang.code))}</span>
-          <span class="resume__meta">Hymn ${song.number} · ${esc(lang.native)} · ${esc(lang.name)}</span>
+          <span class="resume__meta">${esc(ui().hymnNo)} ${song.number} · ${esc(lang.native)} · ${esc(lang.name)}</span>
         </span>
         ${icon("chevron")}
       </button>`;
@@ -1126,6 +1150,14 @@
       html += `<i class="spark" style="--x:${r(2, 98)}%;--s:${r(2, 5)}px;--t:${r(6, 11)}s;--d:${r(0, 6)}s;--dx:${r(-40, 40)}px"></i>`;
     }
     box.innerHTML = html;
+
+    // Twinkling stars across the blue
+    let stars = "";
+    for (let i = 0; i < 40; i++) {
+      const r = (a, b) => (a + Math.random() * (b - a)).toFixed(2);
+      stars += `<i class="star" style="--x:${r(3, 97)}%;--y:${r(3, 97)}%;--s:${r(1, 2.6)}px;--o:${r(.35, .95)};--t:${r(2.2, 5)}s;--d:${r(0, 4)}s"></i>`;
+    }
+    $("#splashStars").innerHTML = stars;
   }
 
   function leaveSplashTo(link) {

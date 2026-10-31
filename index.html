@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Noto+Sans+Oriya:wght@400;600;800&family=Noto+Sans+Telugu:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=13">
+  <link rel="stylesheet" href="styles.css?v=14">
 </head>
 <body>
 
@@ -36,12 +36,15 @@
 
     <!-- 1 · Splash -->
     <section class="page splash is-active" id="splash" aria-label="Conventional Hymns">
+      <div class="splash__beam" aria-hidden="true"></div>
+      <div class="splash__stars" id="splashStars" aria-hidden="true"></div>
       <div class="splash__frame" aria-hidden="true"></div>
       <div class="splash__glow" aria-hidden="true"></div>
       <div class="splash__sparks" id="splashSparks" aria-hidden="true"></div>
       <div class="splash__inner">
         <div class="splash__logo">
           <span class="splash__rays" aria-hidden="true"></span>
+          <span class="splash__rays splash__rays--fine" aria-hidden="true"></span>
           <span class="splash__halo" aria-hidden="true"></span>
           <span class="splash__ring" aria-hidden="true"></span>
           <span class="splash__disc">
@@ -117,13 +120,13 @@
         <div class="container">
           <div class="hero">
             <span class="hero__emblem"><img src="logo.webp" alt="" width="1024" height="1024" decoding="async"></span>
-            <p class="eyebrow">Preferred language</p>
-            <h2 class="h-title" tabindex="-1" data-focus>Choose your language for singing</h2>
+            <p class="eyebrow" id="langEyebrow">Preferred language</p>
+            <h2 class="h-title" id="langTitle" tabindex="-1" data-focus>Choose your language for singing</h2>
             <p class="h-sub">తెలుగు · ଓଡ଼ିଆ · English · हिन्दी · मराठी · বাংলা</p>
             <div class="hero__stats" id="heroStats"></div>
           </div>
           <div id="resume"></div>
-          <p class="section-label"><span>Languages</span></p>
+          <p class="section-label"><span id="langSection">Languages</span></p>
           <div class="lang-grid" id="langGrid"></div>
         </div>
       </div>
@@ -278,8 +281,8 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="songs.js?v=13"></script>
-  <script src="pronounce.js?v=13"></script>
-  <script src="app.js?v=13"></script>
+  <script src="songs.js?v=14"></script>
+  <script src="pronounce.js?v=14"></script>
+  <script src="app.js?v=14"></script>
 </body>
 </html>
