@@ -144,9 +144,11 @@
   ];
 
   // The chosen reading script for a language, or null to show the songs as written.
+  // English hymns are already in English letters ("latin"), so "roman" means as written for them.
+  const sameScript = (own, id) => id === own || (own === "latin" && id === "roman");
   function pronTarget(lang = state.lang) {
     const own = Pronounce.scriptOfLang(lang);
-    if (!own || state.pron === "off" || state.pron === own) return null;
+    if (!own || state.pron === "off" || sameScript(own, state.pron)) return null;
     return PRON_TARGETS.find((p) => p.id === state.pron) || null;
   }
   const pron = (text, target, lang = state.lang) => Pronounce.transliterate(text, lang, target.id);
@@ -540,7 +542,7 @@
     state.langObj = lang;
     state.current = -1;
     state.songs = (BOOK.songs[lang.code] || []).slice().sort((a, b) => a.number - b.number);
-    const indic = !!Pronounce.scriptOfLang(lang.code);
+    const indic = !!Pronounce.scriptOfLang(lang.code) && lang.code !== "en";
     state.index = state.songs.map((s) => {
       const lines = [...(s.verses || []), s.chorus || ""].join("\n").split("\n").map((t) => t.trim()).filter(Boolean);
       const ix = { num: String(s.number), title: norm(s.title), lines, linesN: lines.map(norm) };
@@ -789,7 +791,7 @@
 
   // Original + every other script, the current choice highlighted.
   const pronChips = (own, t) =>
-    [{ id: "off", label: "Original", lang: "en" }, ...PRON_TARGETS.filter((p) => p.id !== own)].map((p) => {
+    [{ id: "off", label: "Original", lang: "en" }, ...PRON_TARGETS.filter((p) => !sameScript(own, p.id))].map((p) => {
       const on = (t ? t.id : "off") === p.id;
       return `<button class="chip${on ? " is-on" : ""}" type="button" data-pron="${p.id}" lang="${p.lang}" aria-pressed="${on}">${esc(p.label)}</button>`;
     }).join("");
