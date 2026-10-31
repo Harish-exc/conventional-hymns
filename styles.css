@@ -377,7 +377,92 @@ button:disabled { cursor: default; }
 @keyframes grow { to { transform: scaleX(1); } }
 
 /* =========================================================
-   2 · Title page (paper)
+   2 · Select language (for the title page only)
+   ========================================================= */
+.intro {
+  color: #fff;
+  background: radial-gradient(120% 85% at 50% 30%, #1c49bd 0%, #0e2d88 42%, #061a52 78%, #04123d 100%);
+  --page-back: linear-gradient(90deg, #071c58 0%, #0f2b7d 55%, #081e5c 100%);
+}
+.intro .page__scroll { display: flex; }
+.intro__inner {
+  position: relative;
+  width: min(520px, 100%);
+  margin: auto;
+  padding: calc(36px + var(--safe-top)) 22px calc(36px + var(--safe-bottom));
+  text-align: center;
+}
+.intro__emblem {
+  display: block;
+  width: 88px;
+  height: 88px;
+  margin: 0 auto 18px;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 0 0 2px rgba(246, 227, 161, .6), 0 0 30px rgba(246, 227, 161, .35), 0 14px 30px rgba(0, 0, 0, .4);
+}
+.intro__emblem img { display: block; width: 100%; height: 100%; transform: scale(1.006); }
+.intro__eyebrow {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .26em;
+  text-transform: uppercase;
+  color: var(--gold-300);
+}
+.intro__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.9rem, 8vw, 2.6rem);
+  font-weight: 800;
+  letter-spacing: .03em;
+  color: #fff;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, .25), 0 10px 30px rgba(0, 0, 0, .25);
+}
+.intro__sub { margin: 8px 0 0; font-size: 14px; color: rgba(255, 255, 255, .7); }
+.intro__rule {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  margin: 18px 0 24px;
+  color: var(--gold-300);
+  font-size: 12px;
+}
+.intro__rule span { height: 1px; width: 70px; background: linear-gradient(90deg, transparent, var(--gold-300)); }
+.intro__rule span:last-child { background: linear-gradient(270deg, transparent, var(--gold-300)); }
+.intro__rule i { font-style: normal; }
+
+.intro__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.intro__opt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 78px;
+  padding: 12px 10px;
+  border-radius: 18px;
+  color: #fff;
+  background: rgba(255, 255, 255, .06);
+  border: 1px solid rgba(246, 227, 161, .4);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08);
+  transition: background .2s, border-color .2s, transform .2s var(--ease-out), box-shadow .2s;
+}
+.intro__opt:hover { background: rgba(255, 255, 255, .12); border-color: rgba(246, 227, 161, .75); }
+.intro__opt:active { transform: scale(.96); }
+.intro__opt.is-on {          /* the language used last time */
+  color: #0a2470;
+  background: linear-gradient(180deg, #f8e7a8 0%, #d9b04a 100%);
+  border-color: #f2d681;
+  box-shadow: 0 12px 24px -12px rgba(212, 169, 55, .9);
+}
+.intro__native { font-size: 20px; font-weight: 700; line-height: 1.3; }
+.intro__en { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; opacity: .75; }
+
+.is-entering .intro__inner > * { animation: rise .55s var(--ease-out) both; animation-delay: var(--enter-delay, 0ms); }
+.is-entering .intro__opt { animation: rise .5s var(--ease-out) both; animation-delay: calc(var(--i, 0) * 55ms + var(--enter-delay, 0ms)); }
+
+/* =========================================================
+   3 · Title page (paper)
    ========================================================= */
 .cover {
   background: linear-gradient(160deg, #0e2b7c 0%, #061a52 100%);
@@ -667,7 +752,7 @@ button:disabled { cursor: default; }
 }
 
 /* =========================================================
-   3 · Language
+   4 · Language
    ========================================================= */
 /* Header card: deep blue, emblem, gold label, white title */
 .hero {
@@ -867,7 +952,7 @@ button:disabled { cursor: default; }
 }
 
 /* =========================================================
-   4 · Song list
+   5 · Song list
    ========================================================= */
 .songs .topbar.is-scrolled { border-color: transparent; box-shadow: none; }
 
@@ -1138,7 +1223,7 @@ mark { background: rgba(233, 199, 102, .5); color: inherit; border-radius: 3px; 
 .empty__text { margin: 0; color: var(--muted); font-size: 14px; }
 
 /* =========================================================
-   5 · Song
+   6 · Song
    ========================================================= */
 .song { --scale: 1; }
 .song .topbar__actions .icon-btn { width: 40px; }

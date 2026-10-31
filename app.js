@@ -12,7 +12,7 @@
   const PUSH_MS   = 420;    // list -> hymn slide
   const FADE_MS   = 260;    // reduced-motion fallback
   const STRIPS    = 12;     // the turning page is drawn as this many bending strips
-  const ORDER = ["splash", "languages", "cover", "songs", "song"];
+  const ORDER = ["splash", "intro", "cover", "languages", "songs", "song"];
 
   const root = document.documentElement;
   root.style.setProperty("--push-ms", PUSH_MS + "ms");
@@ -126,6 +126,7 @@
     filter: "all",
     scale: store.get("scale", 1),
     numeric: store.get("numeric", false),
+    coverLang: store.get("coverLang", "or"),
     pron: store.get("pron", "off"),
     favs: store.get("favs", {}),
     recent: store.get("recent", {}),
@@ -350,7 +351,7 @@
 
   function show(route, back, anim) {
     if (route.lang && route.lang !== state.lang) setLanguage(route.lang);
-    if (route.page === "cover") renderCover(state.lang);
+    if (route.page === "cover") renderCover(route.coverLang || state.coverLang);
     if (route.page === "song") renderSong(route.index);
     return transition(route.page, anim || animFor(state.page, route.page), back);
   }
@@ -381,15 +382,16 @@
 
   window.addEventListener("popstate", (e) => {
     closeSheet();
-    const route = e.state || { page: "languages" };
+    const route = e.state || { page: "intro" };
     if (route.page === "splash" || state.page === "splash") return;
     if (state.busy) { state.queued = route; return; }
     applyRoute(route);
   });
 
   const parentOf = {
-    cover: () => ({ page: "languages" }),
-    songs: () => ({ page: "cover", lang: state.lang }),
+    cover: () => ({ page: "intro" }),
+    languages: () => ({ page: "cover", coverLang: state.coverLang }),
+    songs: () => ({ page: "languages" }),
     song: () => ({ page: "songs", lang: state.lang })
   };
   const back = () => parentOf[state.page] && goBack(parentOf[state.page]());
@@ -433,7 +435,26 @@
     fitCover();
   }
 
-  const openHymns = () => go({ page: "songs", lang: state.lang }, "turn");
+  // Title page Next: on to choosing the language for singing.
+  const openHymns = () => go({ page: "languages" }, "turn");
+
+  /* =========================================================
+     Select language — only for the title page
+     ========================================================= */
+  function renderIntro() {
+    $("#introGrid").innerHTML = BOOK.languages.map((l, i) => `
+      <button class="intro__opt${l.code === state.coverLang ? " is-on" : ""}" type="button" data-cover="${esc(l.code)}" style="--i:${i + 1}">
+        <span class="intro__native" lang="${esc(l.code)}">${esc(l.native)}</span>
+        <span class="intro__en">${esc(l.name)}</span>
+      </button>`).join("");
+  }
+
+  function chooseCoverLang(code) {
+    state.coverLang = code;
+    store.set("coverLang", code);
+    renderIntro();
+    go({ page: "cover", coverLang: code }, "turn");
+  }
 
   /* =========================================================
      Languages
@@ -778,7 +799,6 @@
     if (last.lang !== state.lang) setLanguage(last.lang);
     const index = state.songs.findIndex((s) => s.number === last.number);
     if (index < 0) return;
-    history.pushState({ page: "cover", lang: last.lang, depth: depth() + 1 }, "");
     history.pushState({ page: "songs", lang: last.lang, depth: depth() + 1 }, "");
     go({ page: "song", lang: last.lang, index }, "turn");
   }
@@ -929,7 +949,13 @@
     // Languages
     el.langGrid.addEventListener("click", (e) => {
       const card = e.target.closest("[data-lang]");
-      if (card) go({ page: "cover", lang: card.dataset.lang }, "turn");
+      if (card) go({ page: "songs", lang: card.dataset.lang }, "turn");
+    });
+
+    // Select language (title page only)
+    $("#introGrid").addEventListener("click", (e) => {
+      const opt = e.target.closest("[data-cover]");
+      if (opt) chooseCoverLang(opt.dataset.cover);
     });
 
     // Search & filters
@@ -1055,20 +1081,22 @@
   }
 
   function leaveSplashTo(link) {
-    history.replaceState({ page: "languages", depth: 0 }, "", location.pathname + location.search);
-    if (!link) { show({ page: "languages" }, false, "turn"); return; }
+    history.replaceState({ page: "intro", depth: 0 }, "", location.pathname + location.search);
+    if (!link) { show({ page: "intro" }, false, "turn"); return; }
     // Opened from a shared hymn link: go straight to that hymn (back still walks the book).
     setLanguage(link.lang);
     const index = state.songs.findIndex((s) => s.number === link.number);
-    history.pushState({ page: "cover", lang: link.lang, depth: 1 }, "");
-    history.pushState({ page: "songs", lang: link.lang, depth: 2 }, "");
-    history.pushState({ page: "song", lang: link.lang, index, depth: 3 }, "");
+    history.pushState({ page: "cover", coverLang: state.coverLang, depth: 1 }, "");
+    history.pushState({ page: "languages", depth: 2 }, "");
+    history.pushState({ page: "songs", lang: link.lang, depth: 3 }, "");
+    history.pushState({ page: "song", lang: link.lang, index, depth: 4 }, "");
     show({ page: "song", lang: link.lang, index }, false, "turn");
   }
 
   function init() {
     splitTitle();
     ORDER.forEach((name) => { if (name !== "splash") pages[name].inert = true; });
+    renderIntro();
     renderLanguages();
     renderResume();
     applyScale();

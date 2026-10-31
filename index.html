@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Noto+Sans+Oriya:wght@400;600;800&family=Noto+Sans+Telugu:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=10">
+  <link rel="stylesheet" href="styles.css?v=11">
 </head>
 <body>
 
@@ -53,13 +53,27 @@
       <div class="splash__progress" aria-hidden="true"><i></i></div>
     </section>
 
-    <!-- 2 · Title page (from the printed book) — always fits one screen -->
+    <!-- 2 · Select language — changes only the title page -->
+    <section class="page intro" id="intro" aria-label="Select language">
+      <div class="page__scroll">
+        <div class="intro__inner">
+          <span class="intro__emblem" aria-hidden="true"><img src="logo.webp" alt="" width="1024" height="1024" decoding="async"></span>
+          <p class="intro__eyebrow">Conventional Hymns</p>
+          <h2 class="intro__title" tabindex="-1" data-focus>Select Language</h2>
+          <p class="intro__sub">భాష · ଭାଷା · Language · भाषा · ভাষা</p>
+          <div class="intro__rule" aria-hidden="true"><span></span><i>✦</i><span></span></div>
+          <div class="intro__grid" id="introGrid"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3 · Title page (from the printed book) — always fits one screen -->
     <section class="page cover" id="cover" aria-label="Hallelujah Sangeet">
       <div class="page__scroll">
         <article class="paper" lang="or">
           <div class="cover__bar" lang="en">
-            <button class="cover__back" type="button" data-back aria-label="Back to languages">
-              <svg class="ic" aria-hidden="true"><use href="#i-back"/></svg><span>Languages</span>
+            <button class="cover__back" type="button" data-back aria-label="Back to select language">
+              <svg class="ic" aria-hidden="true"><use href="#i-back"/></svg><span>Language</span>
             </button>
             <span class="cover__lang" id="coverLang"></span>
           </div>
@@ -90,6 +104,9 @@
       <div class="page__scroll">
         <header class="topbar">
           <div class="topbar__row">
+            <button class="icon-btn" type="button" data-back aria-label="Back to title page">
+              <svg class="ic" aria-hidden="true"><use href="#i-back"/></svg>
+            </button>
             <span class="brand-mark" aria-hidden="true"><img src="logo.webp" alt="" width="1024" height="1024" decoding="async"></span>
             <span class="brand">Conventional Hymns</span>
           </div>
@@ -115,7 +132,7 @@
       <div class="page__scroll">
         <header class="topbar topbar--songs">
           <div class="topbar__row">
-            <button class="icon-btn" type="button" data-back aria-label="Back to title page">
+            <button class="icon-btn" type="button" data-back aria-label="Back to languages">
               <svg class="ic" aria-hidden="true"><use href="#i-back"/></svg>
             </button>
             <div class="topbar__titles">
@@ -259,8 +276,8 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="songs.js?v=10"></script>
-  <script src="pronounce.js?v=10"></script>
-  <script src="app.js?v=10"></script>
+  <script src="songs.js?v=11"></script>
+  <script src="pronounce.js?v=11"></script>
+  <script src="app.js?v=11"></script>
 </body>
 </html>
