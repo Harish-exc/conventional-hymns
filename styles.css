@@ -423,10 +423,59 @@ button:disabled { cursor: default; }
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Cg transform='rotate(270 15 15)'%3E%3Cg fill='none' stroke='%23a97f1c' stroke-width='1.2'%3E%3Cpath d='M.6 30V9.6a9 9 0 0 1 9-9H30'/%3E%3Cpath d='M5 30V13a8 8 0 0 1 8-8h17' opacity='.55'/%3E%3C/g%3E%3Cpath d='M11 11l3.5-3.5L18 11l-3.5 3.5z' fill='%23a97f1c'/%3E%3C/g%3E%3C/svg%3E") bottom left / var(--c) no-repeat;
 }
 
+/* Top row: back to languages · chosen language */
+.cover__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: calc(-12px * var(--k)) calc(-8px * var(--k)) calc(10px * var(--k));
+}
+.cover__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 36px;
+  padding: 0 12px 0 8px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #12306e;
+  background: rgba(255, 255, 255, .7);
+  border: 1px solid #e8dcb8;
+  transition: background .15s, transform .15s;
+}
+.cover__back .ic { width: 18px; height: 18px; }
+.cover__back:hover { background: #fff; }
+.cover__back:active { transform: scale(.96); }
+.cover__lang {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0a2470;
+  background: linear-gradient(180deg, #f8e7a8 0%, #d9b04a 100%);
+  box-shadow: 0 6px 14px -8px rgba(169, 127, 28, .9), inset 0 0 0 1px rgba(255, 255, 255, .5);
+}
+
+.cover__emblem {
+  display: block;
+  width: calc(64px * var(--k));
+  height: calc(64px * var(--k));
+  margin: 0 auto calc(10px * var(--k));
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px rgba(212, 169, 55, .75), 0 10px 22px -10px rgba(6, 26, 82, .6);
+}
+.cover__emblem img { display: block; width: 100%; height: 100%; transform: scale(1.006); }
+
 .cover__title {
   margin: 0;
   text-align: center;
-  font-family: "Noto Sans Oriya", var(--font-ui);
+  font-family: var(--font-ui);
   font-weight: 800;
   font-size: calc(clamp(1.9rem, 9vw, 3rem) * var(--k));
   line-height: 1.25;
@@ -558,6 +607,16 @@ button:disabled { cursor: default; }
   color: var(--blue-800);
   padding-left: 4px;
 }
+.brand-mark {           /* small emblem before the brand name */
+  width: 34px;
+  height: 34px;
+  margin: 0 4px 0 8px;
+  flex: none;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 0 0 1.5px rgba(212, 169, 55, .7);
+}
+.brand-mark img { display: block; width: 100%; height: 100%; transform: scale(1.006); }
 
 .icon-btn {
   width: 44px; height: 44px; flex: none;

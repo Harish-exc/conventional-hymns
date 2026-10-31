@@ -12,7 +12,7 @@
   const PUSH_MS   = 420;    // list -> hymn slide
   const FADE_MS   = 260;    // reduced-motion fallback
   const STRIPS    = 12;     // the turning page is drawn as this many bending strips
-  const ORDER = ["splash", "cover", "languages", "songs", "song"];
+  const ORDER = ["splash", "languages", "cover", "songs", "song"];
 
   const root = document.documentElement;
   root.style.setProperty("--push-ms", PUSH_MS + "ms");
@@ -71,6 +71,12 @@
   const scroller = (name) => pages[name].querySelector(".page__scroll");
   const el = {
     paper: $(".paper"),
+    coverLang: $("#coverLang"),
+    coverTitle: $("#coverTitle"),
+    coverVerse: $("#coverVerse"),
+    coverFellowship: $("#coverFellowship"),
+    coverTag: $("#coverTag"),
+    coverBy: $("#coverBy"),
     coverNext: $("#coverNext"),
     langGrid: $("#langGrid"),
     songsTitle: $("#songsTitle"),
@@ -344,6 +350,7 @@
 
   function show(route, back, anim) {
     if (route.lang && route.lang !== state.lang) setLanguage(route.lang);
+    if (route.page === "cover") renderCover(state.lang);
     if (route.page === "song") renderSong(route.index);
     return transition(route.page, anim || animFor(state.page, route.page), back);
   }
@@ -374,15 +381,15 @@
 
   window.addEventListener("popstate", (e) => {
     closeSheet();
-    const route = e.state || { page: "cover" };
+    const route = e.state || { page: "languages" };
     if (route.page === "splash" || state.page === "splash") return;
     if (state.busy) { state.queued = route; return; }
     applyRoute(route);
   });
 
   const parentOf = {
-    languages: () => ({ page: "cover" }),
-    songs: () => ({ page: "languages" }),
+    cover: () => ({ page: "languages" }),
+    songs: () => ({ page: "cover", lang: state.lang }),
     song: () => ({ page: "songs", lang: state.lang })
   };
   const back = () => parentOf[state.page] && goBack(parentOf[state.page]());
@@ -409,6 +416,24 @@
     }
     paper.style.setProperty("--k", lo.toFixed(3));
   }
+
+  // Title page text in the chosen language (falls back to the printed Odia page).
+  function renderCover(code) {
+    const c = BOOK.covers[code] || BOOK.covers.or;
+    const lang = BOOK.languages.find((l) => l.code === code) || BOOK.languages[0];
+    el.paper.lang = BOOK.covers[code] ? code : "or";
+    el.coverLang.textContent = lang.native;
+    el.coverLang.lang = lang.code;
+    el.coverTitle.textContent = c.title;
+    el.coverVerse.innerHTML = c.verse.map((v) => `<p>${esc(v)}</p>`).join("") + `<cite>${esc(c.cite)}</cite>`;
+    el.coverFellowship.textContent = c.fellowship;
+    el.coverTag.textContent = c.tag;
+    el.coverBy.textContent = c.by;
+    pages.cover.setAttribute("aria-label", c.title);
+    fitCover();
+  }
+
+  const openHymns = () => go({ page: "songs", lang: state.lang }, "turn");
 
   /* =========================================================
      Languages
@@ -753,6 +778,7 @@
     if (last.lang !== state.lang) setLanguage(last.lang);
     const index = state.songs.findIndex((s) => s.number === last.number);
     if (index < 0) return;
+    history.pushState({ page: "cover", lang: last.lang, depth: depth() + 1 }, "");
     history.pushState({ page: "songs", lang: last.lang, depth: depth() + 1 }, "");
     go({ page: "song", lang: last.lang, index }, "turn");
   }
@@ -894,8 +920,8 @@
 
   function bind() {
     // Cover
-    el.coverNext.addEventListener("click", () => go({ page: "languages" }, "turn"));
-    onSwipe(pages.cover, (dir) => dir === "left" && go({ page: "languages" }, "turn"));
+    el.coverNext.addEventListener("click", openHymns);
+    onSwipe(pages.cover, (dir) => dir === "left" && openHymns());
 
     // Back buttons
     document.querySelectorAll("[data-back]").forEach((b) => b.addEventListener("click", back));
@@ -903,7 +929,7 @@
     // Languages
     el.langGrid.addEventListener("click", (e) => {
       const card = e.target.closest("[data-lang]");
-      if (card) go({ page: "songs", lang: card.dataset.lang }, "turn");
+      if (card) go({ page: "cover", lang: card.dataset.lang }, "turn");
     });
 
     // Search & filters
@@ -995,7 +1021,7 @@
         return;
       }
       if (e.altKey || e.ctrlKey || e.metaKey) return;
-      if (state.page === "cover" && e.key === "ArrowRight") go({ page: "languages" }, "turn");
+      if (state.page === "cover" && e.key === "ArrowRight") openHymns();
       else if (state.page === "songs" && e.key === "/") { e.preventDefault(); el.search.focus(); }
       else if (state.page === "song" && e.key === "ArrowRight") changeSong(1);
       else if (state.page === "song" && e.key === "ArrowLeft") changeSong(-1);
@@ -1029,12 +1055,12 @@
   }
 
   function leaveSplashTo(link) {
-    history.replaceState({ page: "cover", depth: 0 }, "", location.pathname + location.search);
-    if (!link) { show({ page: "cover" }, false, "turn"); return; }
+    history.replaceState({ page: "languages", depth: 0 }, "", location.pathname + location.search);
+    if (!link) { show({ page: "languages" }, false, "turn"); return; }
     // Opened from a shared hymn link: go straight to that hymn (back still walks the book).
     setLanguage(link.lang);
     const index = state.songs.findIndex((s) => s.number === link.number);
-    history.pushState({ page: "languages", depth: 1 }, "");
+    history.pushState({ page: "cover", lang: link.lang, depth: 1 }, "");
     history.pushState({ page: "songs", lang: link.lang, depth: 2 }, "");
     history.pushState({ page: "song", lang: link.lang, index, depth: 3 }, "");
     show({ page: "song", lang: link.lang, index }, false, "turn");
@@ -1072,7 +1098,10 @@
       pages.splash.addEventListener("click", leaveSplash);
       setTimeout(leaveSplash, remaining);
     });
-    if (document.fonts) document.fonts.ready.then(fitCover);
+    if (document.fonts) {
+      document.fonts.ready.then(fitCover);
+      document.fonts.addEventListener("loadingdone", fitCover);
+    }
 
     // Works offline and can be installed on the phone's home screen.
     if ("serviceWorker" in navigator && location.protocol === "https:") {
