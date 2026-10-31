@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Noto+Sans+Oriya:wght@400;600;800&family=Noto+Sans+Telugu:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=6">
+  <link rel="stylesheet" href="styles.css?v=7">
 </head>
 <body>
 
@@ -58,6 +58,7 @@
       <div class="page__scroll">
         <article class="paper" lang="or">
           <h2 class="cover__title" tabindex="-1" data-focus>ହାଲ୍ଲିଲୂୟା ସଙ୍ଗୀତ</h2>
+          <div class="cover__orn" aria-hidden="true"><span></span><i>✦</i><span></span></div>
 
           <blockquote class="verse">
             <p>"ଏଥି ଉତ୍ତାରେ ମୁଁ ସ୍ୱର୍ଗରେ ମହା ଜନତାର ଶବ୍ଦ ପରି ଗୋଟିଏ ମହା ଶବ୍ଦ ଏହା କହିବାର ଶୁଣିଲି, ହାଲ୍ଲିଲୂୟା ; ପରିତ୍ରାଣ, ଗୌରବ ଓ ପରାକ୍ରମ ଆମ୍ଭମାନଙ୍କ ଈଶ୍ୱରଙ୍କର … …</p>
@@ -76,7 +77,6 @@
           </footer>
 
           <div class="cover__actions" lang="en">
-            <span class="cover__hint">Swipe or tap Next</span>
             <button class="btn-next" id="coverNext" type="button">
               Next
               <svg class="ic" aria-hidden="true"><use href="#i-next"/></svg>
@@ -191,13 +191,16 @@
       </div>
 
       <nav class="song-nav" aria-label="Previous and next hymn">
+        <div class="song-nav__bar" aria-hidden="true"><i id="songProgress"></i></div>
         <div class="song-nav__inner">
           <button class="nav-btn" id="prevSong" type="button">
-            <svg class="ic" aria-hidden="true"><use href="#i-chevron-left"/></svg><span>Previous</span>
+            <svg class="ic" aria-hidden="true"><use href="#i-chevron-left"/></svg>
+            <span class="nav-btn__text"><small>Previous</small><b id="prevNo">—</b></span>
           </button>
           <span class="song-nav__pos" id="songPos"></span>
-          <button class="nav-btn" id="nextSong" type="button">
-            <span>Next</span><svg class="ic" aria-hidden="true"><use href="#i-chevron"/></svg>
+          <button class="nav-btn nav-btn--next" id="nextSong" type="button">
+            <span class="nav-btn__text"><small>Next</small><b id="nextNo">—</b></span>
+            <svg class="ic" aria-hidden="true"><use href="#i-chevron"/></svg>
           </button>
         </div>
       </nav>
@@ -237,8 +240,8 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="songs.js?v=6"></script>
-  <script src="pronounce.js?v=6"></script>
-  <script src="app.js?v=6"></script>
+  <script src="songs.js?v=7"></script>
+  <script src="pronounce.js?v=7"></script>
+  <script src="app.js?v=7"></script>
 </body>
 </html>

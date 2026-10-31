@@ -93,6 +93,9 @@
     prev: $("#prevSong"),
     next: $("#nextSong"),
     pos: $("#songPos"),
+    prevNo: $("#prevNo"),
+    nextNo: $("#nextNo"),
+    progress: $("#songProgress"),
     fontVal: $("#fontVal"),
     resume: $("#resume"),
     sheet: $("#sheet"),
@@ -652,11 +655,18 @@
         <div class="ornament" aria-hidden="true"><span></span><i>✦</i><span></span></div>
         ${readPill}
       </header>
-      ${body}`;
+      ${body}
+      <div class="lyrics__end" aria-hidden="true"><span></span><i>✦ ✦ ✦</i><span></span></div>`;
 
-    el.prev.disabled = i <= 0;
-    el.next.disabled = i >= state.songs.length - 1;
+    // Bottom bar: neighbours by number, and how far through the book this hymn is.
+    const prev = state.songs[i - 1];
+    const next = state.songs[i + 1];
+    el.prev.disabled = !prev;
+    el.next.disabled = !next;
+    el.prevNo.textContent = prev ? `Hymn ${prev.number}` : "—";
+    el.nextNo.textContent = next ? `Hymn ${next.number}` : "—";
     el.pos.textContent = `${i + 1} / ${state.songs.length}`;
+    el.progress.style.width = ((i + 1) / state.songs.length) * 100 + "%";
     updateFavUi();
     if (!keepScroll) scroller("song").scrollTop = 0;
   }
