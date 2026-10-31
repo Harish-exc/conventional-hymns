@@ -451,10 +451,23 @@
       </button>`).join("");
   }
 
+  // The language picked on page 2 is also how the hymns are read (pronounced):
+  // Telugu → Telugu letters, English → English letters, Hindi/Marathi → Devanagari, …
+  const PRON_OF_LANG = { te: "te", or: "or", en: "roman", hi: "dev", mr: "dev", bn: "bn" };
+
+  // Each language's name as people write it in each script (shown on the language cards).
+  const NAMES_IN_SCRIPT = {
+    te:  { te: "తెలుగు", or: "ఒడియా", en: "ఇంగ్లీష్", hi: "హిందీ", mr: "మరాఠీ", bn: "బెంగాలీ" },
+    or:  { te: "ତେଲୁଗୁ", or: "ଓଡ଼ିଆ", en: "ଇଂରାଜୀ", hi: "ହିନ୍ଦୀ", mr: "ମରାଠୀ", bn: "ବଙ୍ଗଳା" },
+    dev: { te: "तेलुगु", or: "ओड़िया", en: "अंग्रेज़ी", hi: "हिन्दी", mr: "मराठी", bn: "बांग्ला" },
+    bn:  { te: "তেলুগু", or: "ওড়িয়া", en: "ইংরেজি", hi: "হিন্দি", mr: "মারাঠি", bn: "বাংলা" }
+  };
+
   function chooseCoverLang(code) {
     state.coverLang = code;
     store.set("coverLang", code);
     renderIntro();
+    setPron(PRON_OF_LANG[code] || "off");
     go({ page: "cover", coverLang: code }, "turn");
   }
 
@@ -464,11 +477,17 @@
   function renderLanguages() {
     el.langGrid.innerHTML = BOOK.languages.map((l, i) => {
       const n = (BOOK.songs[l.code] || []).length;
+      // The language's name as it is written in the script chosen on page 2
+      const names = NAMES_IN_SCRIPT[state.pron];
+      const lang = (PRON_TARGETS.find((p) => p.id === state.pron) || {}).lang;
+      const reads = names && Pronounce.scriptOfLang(l.code) !== state.pron
+        ? `<span class="lang-card__pron" lang="${lang}">${esc(names[l.code])}</span>` : "";
       return `
         <button class="lang-card" type="button" data-lang="${esc(l.code)}" style="--i:${i + 1}">
           <span class="lang-card__glyph" lang="${esc(l.code)}" aria-hidden="true">${esc(l.glyph)}</span>
           <span class="lang-card__body">
             <span class="lang-card__native" lang="${esc(l.code)}">${esc(l.native)}</span>
+            ${reads}
             <span class="lang-card__en">${esc(l.name)}</span>
           </span>
           <span class="lang-card__count">${icon("book")}${n} ${n === 1 ? "hymn" : "hymns"}</span>
@@ -480,8 +499,10 @@
 
     // "6 languages · 33 hymns" on the header card
     const total = BOOK.languages.reduce((sum, l) => sum + (BOOK.songs[l.code] || []).length, 0);
+    const reading = PRON_TARGETS.find((p) => p.id === state.pron);
     $("#heroStats").innerHTML =
-      `<span><b>${BOOK.languages.length}</b> languages</span><span><b>${total}</b> hymns</span>`;
+      `<span><b>${BOOK.languages.length}</b> languages</span><span><b>${total}</b> hymns</span>` +
+      (reading ? `<span class="hero__reading">Reading in <b lang="${reading.lang}">${esc(reading.label)}</b></span>` : "");
   }
 
   function markRecent() {
@@ -765,6 +786,7 @@
     if (state.lang) renderList();
     renderSheet();
     renderResume();
+    renderLanguages();
   }
 
   /* =========================================================
