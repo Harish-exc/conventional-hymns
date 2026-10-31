@@ -95,6 +95,14 @@
     pos: $("#songPos"),
     fontDown: $("#fontDown"),
     fontUp: $("#fontUp"),
+    fontVal: $("#fontVal"),
+    resume: $("#resume"),
+    sheet: $("#sheet"),
+    sheetPanel: $(".sheet__panel"),
+    sheetPron: $("#sheetPron"),
+    readRow: $("#readRow"),
+    fsRow: $("#fsRow"),
+    fsToggle: $("#fsToggle"),
     toast: $("#toast")
   };
 
@@ -112,8 +120,9 @@
     scale: store.get("scale", 1),
     numeric: store.get("numeric", false),
     pron: store.get("pron", "off"),
-    sound: store.get("sound", true),
     favs: store.get("favs", {}),
+    recent: store.get("recent", {}),
+    last: store.get("last", null),
     wakeLock: null
   };
 
@@ -126,89 +135,19 @@
     { id: "bn",    label: "বাংলা",           lang: "bn" }
   ];
 
-  // The chosen pronunciation for the open language, or null when showing the original only.
-  function pronTarget() {
-    const own = Pronounce.scriptOfLang(state.lang);
+  // The chosen reading script for a language, or null to show the songs as written.
+  function pronTarget(lang = state.lang) {
+    const own = Pronounce.scriptOfLang(lang);
     if (!own || state.pron === "off" || state.pron === own) return null;
     return PRON_TARGETS.find((p) => p.id === state.pron) || null;
   }
-  const pron = (text, target) => Pronounce.transliterate(text, state.lang, target.id);
-
-  /* =========================================================
-     Page sound — made in the browser, no audio files
-     ========================================================= */
-  const Sound = (() => {
-    let ctx = null;
-    let noise = null;
-
-    function unlock() {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return null;
-      if (!ctx) {
-        ctx = new AC();
-        // Two seconds of soft (pink-ish) noise: the raw material of paper sounds.
-        const len = Math.floor(ctx.sampleRate * 2);
-        noise = ctx.createBuffer(1, len, ctx.sampleRate);
-        const d = noise.getChannelData(0);
-        let pink = 0;
-        for (let i = 0; i < len; i++) {
-          const white = Math.random() * 2 - 1;
-          pink = 0.97 * pink + 0.03 * white;
-          d[i] = white * 0.5 + pink * 4;
-        }
-      }
-      if (ctx.state === "suspended") ctx.resume().catch(() => {});
-      return ctx;
-    }
-
-    // A page turning: a rustling sweep that rises and falls, then a soft flap as it lands.
-    function flip(seconds) {
-      if (!state.sound) return;
-      const c = unlock();
-      if (!c || c.state !== "running") return;
-      const t = c.currentTime + 0.01;
-      const d = seconds;
-      const out = c.createGain();
-      out.gain.value = 1.6;
-      out.connect(c.destination);
-
-      const rustle = c.createBufferSource();
-      rustle.buffer = noise;
-      const hp = c.createBiquadFilter();
-      hp.type = "highpass";
-      hp.frequency.value = 500;
-      const bp = c.createBiquadFilter();
-      bp.type = "bandpass";
-      bp.Q.value = 0.8;
-      bp.frequency.setValueAtTime(1200, t);
-      bp.frequency.exponentialRampToValueAtTime(4200, t + d * 0.4);
-      bp.frequency.exponentialRampToValueAtTime(1600, t + d * 0.9);
-      const crackle = c.createGain();     // uneven loudness = paper crinkle
-      for (let k = 0; k <= 28; k++) crackle.gain.setValueAtTime(0.45 + Math.random() * 0.9, t + (k / 28) * d);
-      const env = c.createGain();
-      env.gain.setValueAtTime(0.0001, t);
-      env.gain.exponentialRampToValueAtTime(0.28, t + d * 0.15);
-      env.gain.exponentialRampToValueAtTime(0.18, t + d * 0.55);
-      env.gain.exponentialRampToValueAtTime(0.0001, t + d * 0.95);
-      rustle.connect(hp).connect(bp).connect(crackle).connect(env).connect(out);
-      rustle.start(t, Math.random() * 0.5, d + 0.1);
-
-      const flap = c.createBufferSource();
-      flap.buffer = noise;
-      const lp = c.createBiquadFilter();
-      lp.type = "lowpass";
-      lp.frequency.value = 700;
-      const fg = c.createGain();
-      const land = t + d * 0.82;
-      fg.gain.setValueAtTime(0.0001, land);
-      fg.gain.exponentialRampToValueAtTime(0.5, land + 0.015);
-      fg.gain.exponentialRampToValueAtTime(0.0001, land + 0.16);
-      flap.connect(lp).connect(fg).connect(out);
-      flap.start(land, Math.random(), 0.2);
-    }
-
-    return { flip, unlock };
-  })();
+  const pron = (text, target, lang = state.lang) => Pronounce.transliterate(text, lang, target.id);
+  // Text as the reader wants to see it: only the pronunciation when one is chosen.
+  const shown = (text, lang = state.lang) => {
+    const t = pronTarget(lang);
+    return t ? pron(text, t, lang) : String(text);
+  };
+  const chorusLabel = (t) => (BOOK.languages.find((l) => l.code === (t ? t.lang : state.lang)) || state.langObj).chorus;
 
   /* =========================================================
      Paper turn — the page bends as it turns
@@ -281,7 +220,6 @@
     const shadow = document.createElement("div");
     shadow.className = "flip-shadow";
     under.appendChild(shadow);
-    Sound.flip(ms / 1000);
 
     // Bend grows toward the free edge, so the edge leads and the paper curls.
     const weights = strips.map((_, i) => (i === 0 ? 0 : Math.pow(i / (STRIPS - 1), 2)));
@@ -352,6 +290,7 @@
       to.classList.add("is-entering");
     }
     if (name === "cover") fitCover();
+    if (name === "languages") renderResume();
 
     if (anim === "turn") {
       // Forward: the current page turns away. Back: the previous page turns back over it.
@@ -433,6 +372,7 @@
   }
 
   window.addEventListener("popstate", (e) => {
+    closeSheet();
     const route = e.state || { page: "cover" };
     if (route.page === "splash" || state.page === "splash") return;
     if (state.busy) { state.queued = route; return; }
@@ -610,25 +550,29 @@
     const q = norm(raw);
     let rows = search(q);
     if (state.filter === "fav") rows = rows.filter((r) => isFav(state.songs[r.i].number));
+    if (state.filter === "recent") {
+      const order = recentList();
+      rows = rows.filter((r) => order.includes(state.songs[r.i].number));
+      if (!raw) rows.sort((a, b) => order.indexOf(state.songs[a.i].number) - order.indexOf(state.songs[b.i].number));
+    }
     lastRows = rows;
 
     el.clear.hidden = !raw;
     const t = pronTarget();
+    el.list.lang = t ? t.lang : state.lang;
     el.list.innerHTML = rows.map((r, k) => {
       const s = state.songs[r.i];
-      // Preview: the matched line, else the title's pronunciation, else the first line.
-      let preview = r.line;
-      let plang = r.roman ? "en" : "";
-      let isPron = r.roman;
-      if (!preview && t) { preview = pron(s.title, t); plang = t.lang; isPron = true; }
-      if (!preview) preview = firstLine(s);
+      // Preview: the line that matched the search (in the reading script), else the first line.
+      let preview = shown(firstLine(s));
+      if (r.line && !r.roman) preview = shown(r.line);
+      else if (r.line && (!t || t.id === "roman")) preview = r.line;
       return `
         <li>
           <button class="song-item" type="button" data-i="${r.i}" style="--i:${Math.min(k, 12)}">
             <span class="song-item__num">${hl(s.number, q)}</span>
             <span class="song-item__text">
-              <span class="song-item__title">${hl(s.title, q)}</span>
-              <span class="song-item__preview${isPron ? " is-pron" : ""}"${plang ? ` lang="${plang}"` : ""}>${hl(preview, q)}</span>
+              <span class="song-item__title">${hl(shown(s.title), q)}</span>
+              <span class="song-item__preview">${hl(preview, q)}</span>
             </span>
             ${isFav(s.number) ? icon("heart", "song-item__fav") : ""}
             ${icon("chevron")}
@@ -636,16 +580,20 @@
         </li>`;
     }).join("");
 
-    const favMode = state.filter === "fav";
+    const EMPTY = {
+      fav: ["heart", "No favorites yet", "Open a hymn and tap the heart to keep it here."],
+      recent: ["clock", "Nothing here yet", "Hymns you open will show up here."],
+      all: ["search", "No hymns found", "Try another song number or a word from the title."]
+    };
+    const [emptyIcon, emptyTitle, emptyText] = raw ? EMPTY.all : EMPTY[state.filter];
     el.empty.hidden = rows.length > 0;
-    el.emptyIcon.setAttribute("href", favMode && !raw ? "#i-heart" : "#i-search");
-    el.emptyTitle.textContent = favMode && !raw ? "No favorites yet" : "No hymns found";
-    el.emptyText.textContent = favMode && !raw
-      ? "Open a hymn and tap the heart to keep it here."
-      : "Try another song number or a word from the title.";
+    el.emptyIcon.setAttribute("href", "#i-" + emptyIcon);
+    el.emptyTitle.textContent = emptyTitle;
+    el.emptyText.textContent = emptyText;
+    const NAMES = { all: "All hymns", fav: "Favorites", recent: "Recently opened" };
     el.count.textContent = raw
       ? `${rows.length} ${rows.length === 1 ? "result" : "results"} for “${raw}”`
-      : `${favMode ? "Favorites" : "All hymns"} · ${rows.length}`;
+      : `${NAMES[state.filter]} · ${rows.length}`;
   }
 
   let searchTimer = 0;
@@ -675,42 +623,34 @@
     const own = Pronounce.scriptOfLang(lang.code);
     const t = pronTarget();
     state.current = i;
+    rememberOpened(s);
 
     el.songNo.textContent = `Hymn ${s.number}`;
     el.songLang.textContent = `${lang.native} · ${lang.name}`;
 
-    // Each line, with its pronunciation underneath when one is chosen.
-    const text = (v) => !t ? esc(v) : v.split("\n").map((l) =>
-      `<span class="ln"><span class="ln__o">${esc(l)}</span><span class="ln__p" lang="${t.lang}">${esc(pron(l, t))}</span></span>`
-    ).join("");
+    // When a reading script is chosen, only that version is shown — no original lines.
+    const text = (v) => esc(t ? pron(v, t) : v);
 
     let body = "";
     (s.verses || []).forEach((v, k) => {
       body += `<div class="stanza"><span class="stanza__n">${k + 1}</span><p class="stanza__text">${text(v)}</p></div>`;
-      if (k === 0 && s.chorus) body += chorusHtml(text(s.chorus), lang);
+      if (k === 0 && s.chorus) body += chorusHtml(text(s.chorus), chorusLabel(t));
     });
-    if (!(s.verses || []).length && s.chorus) body += chorusHtml(text(s.chorus), lang);
+    if (!(s.verses || []).length && s.chorus) body += chorusHtml(text(s.chorus), chorusLabel(t));
 
-    const pronBar = !own ? "" : `
-      <div class="pron" role="group" aria-label="Pronunciation">
-        <span class="pron__label" lang="en">Pronunciation</span>
-        <div class="pron__chips">
-          ${[{ id: "off", label: "Original", lang: "en" }, ...PRON_TARGETS.filter((p) => p.id !== own)].map((p) => {
-            const on = (t ? t.id : "off") === p.id;
-            return `<button class="chip${on ? " is-on" : ""}" type="button" data-pron="${p.id}" lang="${p.lang}" aria-pressed="${on}">${esc(p.label)}</button>`;
-          }).join("")}
-        </div>
-      </div>`;
+    const readPill = !own ? "" : `
+      <button class="read-pill" type="button" data-sheet lang="en">
+        Read in <strong lang="${t ? t.lang : "en"}">${esc(t ? t.label : "Original")}</strong>${icon("chevron")}
+      </button>`;
 
-    el.lyrics.lang = lang.code;
+    el.lyrics.lang = t ? t.lang : lang.code;
     el.lyrics.innerHTML = `
       <header class="lyrics__head">
         <p class="hymn-no" lang="en"><span>Hymn</span><strong>${esc(s.number)}</strong></p>
-        <h1 class="lyrics__title" tabindex="-1" data-focus>${esc(s.title)}</h1>
-        ${t ? `<p class="lyrics__pron" lang="${t.lang}">${esc(pron(s.title, t))}</p>` : ""}
-        ${s.author ? `<p class="lyrics__author">${esc(s.author)}</p>` : ""}
+        <h1 class="lyrics__title" tabindex="-1" data-focus>${text(s.title)}</h1>
+        ${s.author ? `<p class="lyrics__author" lang="en">${esc(s.author)}</p>` : ""}
         <div class="ornament" aria-hidden="true"><span></span><i>✦</i><span></span></div>
-        ${pronBar}
+        ${readPill}
       </header>
       ${body}`;
 
@@ -721,15 +661,102 @@
     if (!keepScroll) scroller("song").scrollTop = 0;
   }
 
-  const chorusHtml = (html, lang) =>
-    `<div class="chorus"><span class="chorus__label">${esc(lang.chorus)}</span><p class="chorus__text">${html}</p></div>`;
+  const chorusHtml = (html, label) =>
+    `<div class="chorus"><span class="chorus__label">${esc(label)}</span><p class="chorus__text">${html}</p></div>`;
 
   function setPron(id) {
     state.pron = id;
     store.set("pron", id);
-    renderSong(state.current, true);
+    if (state.current >= 0 && state.lang) {
+      renderSong(state.current, true);
+      el.lyrics.classList.remove("is-swapping");
+      void el.lyrics.offsetWidth;
+      el.lyrics.classList.add("is-swapping");
+    }
     pages.songs.style.setProperty("--enter-delay", "0ms");
-    renderList();
+    if (state.lang) renderList();
+    renderSheet();
+    renderResume();
+  }
+
+  /* =========================================================
+     Recent hymns & continue reading
+     ========================================================= */
+  const recentList = () => state.recent[state.lang] || [];
+
+  function rememberOpened(s) {
+    state.recent[state.lang] = [s.number, ...recentList().filter((n) => n !== s.number)].slice(0, 15);
+    state.last = { lang: state.lang, number: s.number };
+    store.set("recent", state.recent);
+    store.set("last", state.last);
+  }
+
+  function renderResume() {
+    const last = state.last;
+    const song = last && (BOOK.songs[last.lang] || []).find((s) => s.number === last.number);
+    const lang = last && BOOK.languages.find((l) => l.code === last.lang);
+    if (!song || !lang) { el.resume.innerHTML = ""; return; }
+    const t = pronTarget(lang.code);
+    el.resume.innerHTML = `
+      <button class="resume" type="button" data-resume>
+        <span class="resume__icon">${icon("book")}</span>
+        <span class="resume__text">
+          <span class="resume__label">Continue reading</span>
+          <span class="resume__title" lang="${t ? t.lang : lang.code}">${esc(shown(song.title, lang.code))}</span>
+          <span class="resume__meta">Hymn ${song.number} · ${esc(lang.native)} · ${esc(lang.name)}</span>
+        </span>
+        ${icon("chevron")}
+      </button>`;
+  }
+
+  function resumeReading() {
+    const last = state.last;
+    if (!last || state.busy) return;
+    if (last.lang !== state.lang) setLanguage(last.lang);
+    const index = state.songs.findIndex((s) => s.number === last.number);
+    if (index < 0) return;
+    history.pushState({ page: "songs", lang: last.lang, depth: depth() + 1 }, "");
+    go({ page: "song", lang: last.lang, index }, "turn");
+  }
+
+  /* =========================================================
+     Reading options sheet
+     ========================================================= */
+  let sheetReturn = null;
+
+  function renderSheet() {
+    const own = Pronounce.scriptOfLang(state.lang);
+    el.readRow.hidden = !own;
+    if (own) {
+      const t = pronTarget();
+      el.sheetPron.innerHTML = [{ id: "off", label: "Original", lang: "en" }, ...PRON_TARGETS.filter((p) => p.id !== own)].map((p) => {
+        const on = (t ? t.id : "off") === p.id;
+        return `<button class="chip${on ? " is-on" : ""}" type="button" data-pron="${p.id}" lang="${p.lang}" aria-pressed="${on}">${esc(p.label)}</button>`;
+      }).join("");
+    }
+    el.fontVal.textContent = Math.round(state.scale * 100) + "%";
+    el.fsRow.hidden = !document.fullscreenEnabled;
+    el.fsToggle.setAttribute("aria-checked", String(!!document.fullscreenElement));
+  }
+
+  function openSheet() {
+    renderSheet();
+    sheetReturn = document.activeElement;
+    el.sheet.classList.add("is-open");
+    el.sheet.setAttribute("aria-hidden", "false");
+    requestAnimationFrame(() => el.sheetPanel.focus({ preventScroll: true }));
+  }
+
+  function closeSheet() {
+    if (!el.sheet.classList.contains("is-open")) return;
+    el.sheet.classList.remove("is-open");
+    el.sheet.setAttribute("aria-hidden", "true");
+    if (sheetReturn && sheetReturn.focus) sheetReturn.focus({ preventScroll: true });
+  }
+
+  function toggleFullscreen() {
+    const req = document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen();
+    if (req && req.catch) req.catch(() => toast("Full screen isn't available here"));
   }
 
   // Prev / next hymn: the page bends over like a real book page.
@@ -767,6 +794,7 @@
     pages.song.style.setProperty("--scale", state.scale);
     el.fontDown.disabled = state.scale <= 0.8;
     el.fontUp.disabled = state.scale >= 1.6;
+    el.fontVal.textContent = Math.round(state.scale * 100) + "%";
   }
   function setScale(d) {
     state.scale = Math.round(Math.min(1.6, Math.max(0.8, state.scale + d)) * 10) / 10;
@@ -804,22 +832,7 @@
     } catch { state.wakeLock = null; }
   }
 
-  /* ---------- sound toggle & toast ---------- */
-  function applySound() {
-    document.querySelectorAll("[data-sound]").forEach((b) => {
-      b.setAttribute("aria-pressed", String(state.sound));
-      b.setAttribute("aria-label", state.sound ? "Turn page sound off" : "Turn page sound on");
-      b.querySelector("use").setAttribute("href", state.sound ? "#i-volume" : "#i-mute");
-    });
-  }
-  function toggleSound() {
-    state.sound = !state.sound;
-    store.set("sound", state.sound);
-    applySound();
-    if (state.sound) { Sound.unlock(); setTimeout(() => Sound.flip(0.6), 60); }
-    toast(state.sound ? "Page sound on" : "Page sound off");
-  }
-
+  /* ---------- toast ---------- */
   let toastTimer = 0;
   function toast(msg) {
     el.toast.textContent = msg;
@@ -847,18 +860,12 @@
   }
 
   function bind() {
-    // Browsers only allow sound after the first tap or key press.
-    const unlock = () => { if (state.sound) Sound.unlock(); };
-    document.addEventListener("pointerdown", unlock, { passive: true });
-    document.addEventListener("keydown", unlock);
-
     // Cover
     el.coverNext.addEventListener("click", () => go({ page: "languages" }, "turn"));
     onSwipe(pages.cover, (dir) => dir === "left" && go({ page: "languages" }, "turn"));
 
-    // Back buttons & sound toggles
+    // Back buttons
     document.querySelectorAll("[data-back]").forEach((b) => b.addEventListener("click", back));
-    document.querySelectorAll("[data-sound]").forEach((b) => b.addEventListener("click", toggleSound));
 
     // Languages
     el.langGrid.addEventListener("click", (e) => {
@@ -895,11 +902,23 @@
       if (item) go({ page: "song", lang: state.lang, index: Number(item.dataset.i) }, "push");
     });
 
-    // Song view
-    el.lyrics.addEventListener("click", (e) => {
+    // Continue reading
+    el.resume.addEventListener("click", (e) => { if (e.target.closest("[data-resume]")) resumeReading(); });
+
+    // Reading options
+    document.addEventListener("click", (e) => {
+      if (e.target.closest("[data-sheet]")) openSheet();
+      else if (e.target.closest("[data-close]")) closeSheet();
+    });
+    el.sheetPron.addEventListener("click", (e) => {
       const chip = e.target.closest("[data-pron]");
       if (chip) setPron(chip.dataset.pron);
     });
+    el.fsToggle.addEventListener("click", toggleFullscreen);
+    document.addEventListener("fullscreenchange", () =>
+      el.fsToggle.setAttribute("aria-checked", String(!!document.fullscreenElement)));
+
+    // Song view
     el.favBtn.addEventListener("click", toggleFav);
     el.shareBtn.addEventListener("click", shareSong);
     el.prev.addEventListener("click", () => changeSong(-1));
@@ -921,6 +940,10 @@
 
     // Keyboard (laptop)
     document.addEventListener("keydown", (e) => {
+      if (el.sheet.classList.contains("is-open")) {
+        if (e.key === "Escape") closeSheet();
+        return;
+      }
       if (e.target === el.search) {
         if (e.key === "Escape") { el.search.value ? el.clear.click() : el.search.blur(); }
         return;
@@ -975,9 +998,9 @@
     splitTitle();
     ORDER.forEach((name) => { if (name !== "splash") pages[name].inert = true; });
     renderLanguages();
+    renderResume();
     applyScale();
     applyKeypad();
-    applySound();
     bind();
 
     history.replaceState({ page: "splash", depth: 0 }, "");

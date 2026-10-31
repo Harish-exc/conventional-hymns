@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Noto+Sans+Oriya:wght@400;600;800&family=Noto+Sans+Telugu:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=3">
+  <link rel="stylesheet" href="styles.css?v=4">
 </head>
 <body>
 
@@ -28,8 +28,8 @@
     <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
     <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></symbol>
     <symbol id="i-share" viewBox="0 0 24 24"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v13"/></symbol>
-    <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></symbol>
-    <symbol id="i-mute" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5v14z"/><path d="M6.5 17A2.5 2.5 0 0 0 4 19.5 2.5 2.5 0 0 0 6.5 22H20v-5"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
   </svg>
 
   <main id="book" class="book">
@@ -68,9 +68,6 @@
           </footer>
 
           <div class="cover__actions" lang="en">
-            <button class="icon-btn sound-btn" type="button" data-sound aria-pressed="true" aria-label="Turn page sound off">
-              <svg class="ic" aria-hidden="true"><use href="#i-volume"/></svg>
-            </button>
             <span class="cover__hint">Swipe or tap Next</span>
             <button class="btn-next" id="coverNext" type="button">
               Next
@@ -90,11 +87,6 @@
               <svg class="ic" aria-hidden="true"><use href="#i-back"/></svg>
             </button>
             <span class="brand">Conventional Hymns</span>
-            <div class="topbar__actions">
-              <button class="icon-btn sound-btn" type="button" data-sound aria-pressed="true" aria-label="Turn page sound off">
-                <svg class="ic" aria-hidden="true"><use href="#i-volume"/></svg>
-              </button>
-            </div>
           </div>
         </header>
 
@@ -104,6 +96,7 @@
             <h2 class="h-title" tabindex="-1" data-focus>Choose your language</h2>
             <p class="h-sub">తెలుగు · ଓଡ଼ିଆ · English · हिन्दी · मराठी · বাংলা</p>
           </div>
+          <div id="resume"></div>
           <div class="lang-grid" id="langGrid"></div>
         </div>
       </div>
@@ -120,6 +113,9 @@
             <div class="topbar__titles">
               <h2 class="topbar__title" id="songsTitle" tabindex="-1" data-focus>Hymns</h2>
               <p class="topbar__sub" id="songsMeta"></p>
+            </div>
+            <div class="topbar__actions">
+              <button class="icon-btn aa-btn" type="button" data-sheet aria-label="Reading options">Aa</button>
             </div>
           </div>
 
@@ -139,6 +135,9 @@
             <button class="chip is-on" type="button" data-filter="all" aria-pressed="true">All hymns</button>
             <button class="chip" type="button" data-filter="fav" aria-pressed="false">
               <svg class="ic" aria-hidden="true"><use href="#i-heart"/></svg>Favorites<span class="chip__n" id="favCount">0</span>
+            </button>
+            <button class="chip" type="button" data-filter="recent" aria-pressed="false">
+              <svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg>Recent
             </button>
           </div>
         </header>
@@ -174,8 +173,7 @@
               <button class="icon-btn" id="shareBtn" type="button" aria-label="Share this hymn">
                 <svg class="ic" aria-hidden="true"><use href="#i-share"/></svg>
               </button>
-              <button class="icon-btn font-ctrl__btn" id="fontDown" type="button" aria-label="Smaller text">A<sup>−</sup></button>
-              <button class="icon-btn font-ctrl__btn font-ctrl__btn--big" id="fontUp" type="button" aria-label="Larger text">A<sup>+</sup></button>
+              <button class="icon-btn aa-btn" type="button" data-sheet aria-label="Reading options">Aa</button>
             </div>
           </div>
         </header>
@@ -198,10 +196,40 @@
 
   </main>
 
+  <!-- Reading options -->
+  <div class="sheet" id="sheet" aria-hidden="true">
+    <div class="sheet__backdrop" data-close></div>
+    <div class="sheet__panel" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" tabindex="-1">
+      <div class="sheet__grip" aria-hidden="true"></div>
+      <h3 class="sheet__title" id="sheetTitle">Reading options</h3>
+
+      <div class="sheet__row sheet__row--col" id="readRow">
+        <span class="sheet__label">Read in<span class="sheet__hint">Show the songs in English letters or another script</span></span>
+        <div class="pron__chips" id="sheetPron"></div>
+      </div>
+
+      <div class="sheet__row">
+        <span class="sheet__label">Text size</span>
+        <div class="stepper">
+          <button type="button" id="fontDown" aria-label="Smaller text">A−</button>
+          <output id="fontVal">100%</output>
+          <button type="button" id="fontUp" aria-label="Larger text">A+</button>
+        </div>
+      </div>
+
+      <div class="sheet__row" id="fsRow">
+        <span class="sheet__label">Full screen<span class="sheet__hint">Hide the browser bars while singing</span></span>
+        <button class="switch" type="button" id="fsToggle" role="switch" aria-checked="false" aria-label="Full screen"><span></span></button>
+      </div>
+
+      <button class="sheet__done" type="button" data-close>Done</button>
+    </div>
+  </div>
+
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="songs.js?v=3"></script>
-  <script src="pronounce.js?v=3"></script>
-  <script src="app.js?v=3"></script>
+  <script src="songs.js?v=4"></script>
+  <script src="pronounce.js?v=4"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>
