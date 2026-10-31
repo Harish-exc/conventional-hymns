@@ -31,10 +31,8 @@
   --ease-out: cubic-bezier(.2, .8, .2, 1);
 
   /* Durations are overwritten from app.js so CSS and JS stay in sync */
-  --turn-ms: 1100ms;
   --push-ms: 420ms;
   --fade-ms: 260ms;
-  --turn-ease: cubic-bezier(.645, .045, .355, 1);
   --push-ease: cubic-bezier(.32, .72, 0, 1);
 
   --safe-top: env(safe-area-inset-top, 0px);
@@ -97,10 +95,8 @@ button:disabled { cursor: default; }
   overscroll-behavior-y: contain;
 }
 
-/* Overlays used during transitions:
-   ::before = light/shade on the page face, ::after = back side of the paper */
-.page::before,
-.page::after {
+/* Dimming overlay used by the slide transition */
+.page::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -108,50 +104,63 @@ button:disabled { cursor: default; }
   pointer-events: none;
   opacity: 0;
 }
-.page::before { background: linear-gradient(90deg, rgba(0,0,0,0) 0%, rgba(0,0,0,.16) 55%, rgba(0,0,0,.42) 100%); }
-.page::after  { background: var(--page-back); }
 
-/* ---------- Paper turn ---------- */
-.page.turn-out,
-.page.turn-in {
-  visibility: visible;
+/* ---------- Paper turn ----------
+   app.js draws the turning page as vertical strips; each strip
+   rotates a little more than the one before, so the paper bends. */
+.page.is-under   { visibility: visible; z-index: 1; }
+.page.is-turning { visibility: hidden !important; }
+
+.flip {
+  position: absolute;
+  inset: 0;
   z-index: 6;
+  pointer-events: none;
+  transform-style: preserve-3d;
+}
+.flip__seg {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  transform-style: preserve-3d;
+  transform-origin: 0 50%;
   will-change: transform;
-  animation: pageTurn var(--turn-ms) var(--turn-ease) both;
 }
-.page.turn-in { animation-direction: reverse; }
+.flip__face,
+.flip__back {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  overflow: hidden;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+.flip__back { left: 0; transform: rotateY(180deg); }
+.flip .page {
+  visibility: visible !important;
+  z-index: auto !important;
+  transform: none !important;
+  animation: none !important;
+  box-shadow: none !important;
+}
+.flip .page::before { display: none; }
+/* Copies show the page as it looks now: entrance animations jump to their end. */
+.flip .page *,
+.flip .page *::before,
+.flip .page *::after { animation-delay: -60s !important; transition: none !important; }
+.flip__shade { position: absolute; top: 0; height: 100%; pointer-events: none; }
 
-.page.turn-out::before,
-.page.turn-in::before  { animation: frontShade var(--turn-ms) var(--turn-ease) both; }
-.page.turn-out::after,
-.page.turn-in::after   { animation: backFace var(--turn-ms) var(--turn-ease) both; }
-.page.turn-in::before,
-.page.turn-in::after   { animation-direction: reverse; }
-
-.page.turn-under { visibility: visible; z-index: 1; }
-.page.turn-under::before {
-  background: rgba(6, 12, 32, .42);
-  animation: underShade var(--turn-ms) var(--turn-ease) both;
-}
-.page.turn-under.is-back::before { animation-direction: reverse; }
-
-@keyframes pageTurn {
-  from { transform: rotateY(0deg); }
-  to   { transform: rotateY(-180deg); }
-}
-@keyframes frontShade {
-  0%          { opacity: 0; }
-  50%         { opacity: 1; }
-  50.01%, 100% { opacity: 0; }
-}
-@keyframes backFace {
-  0%, 50% { opacity: 0; }
-  50.01%  { opacity: 1; filter: brightness(.72); }
-  100%    { opacity: 1; filter: brightness(1); }
-}
-@keyframes underShade {
-  from { opacity: 1; }
-  to   { opacity: 0; }
+/* Shadow the turning page casts on the page underneath */
+.flip-shadow {
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(90deg,
+    rgba(4, 10, 30, .55) 0%,
+    rgba(4, 10, 30, .38) calc(var(--x, 50) * 1%),
+    rgba(4, 10, 30, 0) calc(var(--x, 50) * 1% + 16%));
 }
 
 /* ---------- Push (list → hymn) ---------- */
@@ -304,25 +313,30 @@ button:disabled { cursor: default; }
 .cover {
   background: linear-gradient(160deg, #0e2b7c 0%, #061a52 100%);
 }
-.cover .page__scroll { display: flex; flex-direction: column; }
+/* The title page never scrolls: app.js picks --k so everything fits the screen. */
+.cover .page__scroll { display: flex; flex-direction: column; overflow: hidden; }
 
 .paper {
+  --k: 1;
   position: relative;
-  flex: 1 0 auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   background:
     linear-gradient(90deg, rgba(60, 40, 10, .07) 0%, rgba(60, 40, 10, 0) 5%),
     var(--paper);
-  padding: calc(34px + var(--safe-top)) 20px 0;
-  display: flex;
-  flex-direction: column;
+  padding: calc(22px * var(--k) + var(--safe-top)) calc(18px * var(--k)) 0;
 }
+.paper > * { flex-shrink: 0; }
 
 .cover__title {
-  margin: 4px 0 22px;
+  margin: 0 0 calc(16px * var(--k));
   text-align: center;
   font-family: "Noto Sans Oriya", var(--font-ui);
   font-weight: 800;
-  font-size: clamp(2.1rem, 10vw, 3.3rem);
+  font-size: calc(clamp(1.9rem, 9vw, 3rem) * var(--k));
   line-height: 1.25;
   color: #13306f;
   text-shadow: 0 1px 0 #fff, 0 3px 0 rgba(19, 48, 111, .12);
@@ -330,41 +344,38 @@ button:disabled { cursor: default; }
 
 .verse {
   margin: 0 2px;
-  padding: 16px 14px 12px;
+  padding: calc(14px * var(--k)) calc(13px * var(--k)) calc(10px * var(--k));
   border: 1.5px solid #2a2a2a;
   outline: 1px solid #2a2a2a;
   outline-offset: 3px;
-  font-size: clamp(.93rem, 3.7vw, 1.05rem);
-  line-height: 1.78;
+  font-size: calc(clamp(.9rem, 3.6vw, 1.02rem) * var(--k));
+  line-height: 1.7;
   color: #1b1b1b;
   text-align: justify;
   hyphens: auto;
 }
-.verse p { margin: 0 0 .45em; text-indent: 1.6em; }
-.verse cite { display: block; margin-top: 6px; text-align: right; font-style: normal; font-weight: 600; }
+.verse p { margin: 0 0 .4em; text-indent: 1.6em; }
+.verse cite { display: block; margin-top: .3em; text-align: right; font-style: normal; font-weight: 600; }
 
-.cover__footer { text-align: center; margin: 26px 0 8px; color: #1b1b1b; }
-.cover__footer p { margin: 0 0 6px; }
+.cover__footer { text-align: center; margin: calc(18px * var(--k)) 0 calc(4px * var(--k)); color: #1b1b1b; }
+.cover__footer p { margin: 0 0 calc(4px * var(--k)); }
 .cover__fellowship {
   font-weight: 800;
-  font-size: clamp(1.05rem, 4.4vw, 1.32rem);
+  font-size: calc(clamp(1rem, 4.2vw, 1.28rem) * var(--k));
   color: #13306f;
 }
-.cover__tag { font-weight: 600; font-size: clamp(.95rem, 3.8vw, 1.1rem); }
-.cover__by  { font-size: clamp(.95rem, 3.8vw, 1.1rem); }
+.cover__tag { font-weight: 600; font-size: calc(clamp(.9rem, 3.7vw, 1.06rem) * var(--k)); }
+.cover__by  { font-size: calc(clamp(.9rem, 3.7vw, 1.06rem) * var(--k)); }
 
 .cover__actions {
-  position: sticky;
-  bottom: 0;
   margin-top: auto;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 22px 0 calc(16px + var(--safe-bottom));
-  background: linear-gradient(to top, var(--paper) 72%, rgba(253, 251, 245, 0));
+  gap: 8px;
+  padding: calc(12px * var(--k)) 0 calc(14px + var(--safe-bottom));
 }
-.cover__hint { font-size: 12.5px; color: var(--muted); }
+.cover__actions .icon-btn { color: var(--ink-2); margin-left: -8px; }
+.cover__hint { flex: 1; font-size: 12.5px; color: var(--muted); }
 
 .btn-next {
   position: relative;
@@ -451,6 +462,37 @@ button:disabled { cursor: default; }
 .icon-btn:hover { background: var(--bg-soft); }
 .icon-btn:active { transform: scale(.92); background: #eceef2; }
 .icon-btn:disabled { opacity: .35; pointer-events: none; }
+.icon-btn.is-fav { color: #e0245e; }
+.icon-btn.is-fav .ic { fill: currentColor; }
+.icon-btn.pop .ic { animation: pop .45s var(--ease-out); }
+@keyframes pop { 35% { transform: scale(1.35); } }
+.sound-btn[aria-pressed="false"] { color: var(--muted); }
+
+.topbar__actions { display: flex; gap: 2px; margin-left: auto; flex: none; }
+
+/* Short message at the bottom ("Link copied", …) */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(88px + var(--safe-bottom));
+  z-index: 100;
+  max-width: calc(100% - 32px);
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: rgba(15, 17, 21, .92);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, .5);
+  opacity: 0;
+  transform: translate(-50%, 16px);
+  pointer-events: none;
+  transition: opacity .25s, transform .3s var(--ease-out);
+}
+.toast.is-on { opacity: 1; transform: translate(-50%, 0); }
 
 .container {
   max-width: 1100px;
@@ -629,6 +671,20 @@ button:disabled { cursor: default; }
 }
 .search__mode[aria-pressed="true"] { background: var(--blue-800); color: #fff; border-color: var(--blue-800); }
 
+.filters { display: flex; gap: 8px; max-width: 1100px; margin: 6px auto 4px; padding: 0 4px; }
+.filters .chip { display: inline-flex; align-items: center; }
+.filters .chip .ic { width: 15px; height: 15px; margin-right: 5px; }
+.filters .chip.is-on .ic { fill: currentColor; }
+.chip__n {
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: var(--bg-soft);
+  color: var(--ink-2);
+}
+.chip.is-on .chip__n { background: rgba(255, 255, 255, .2); color: #fff; }
+
 .result-count { margin: 6px 2px 4px; font-size: 13px; color: var(--muted); font-weight: 500; }
 
 .song-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr; }
@@ -649,6 +705,7 @@ button:disabled { cursor: default; }
 .song-item:hover { background: #fafbfc; }
 .song-item:active { background: var(--bg-soft); }
 .song-item > .ic { width: 18px; height: 18px; color: #c0c4cc; }
+.song-item > .song-item__fav { width: 16px; height: 16px; color: #e0245e; fill: currentColor; }
 
 .song-item__num {
   flex: none;
@@ -686,8 +743,8 @@ mark { background: rgba(233, 199, 102, .5); color: inherit; border-radius: 3px; 
    5 · Song
    ========================================================= */
 .song { --scale: 1; }
+.song .topbar__actions .icon-btn { width: 40px; }
 
-.font-ctrl { display: flex; gap: 2px; }
 .font-ctrl__btn { font-weight: 700; font-size: 15px; color: var(--ink-2); }
 .font-ctrl__btn--big { font-size: 19px; }
 .font-ctrl__btn sup { font-size: .6em; margin-left: 1px; }
@@ -871,19 +928,17 @@ mark { background: rgba(233, 199, 102, .5); color: inherit; border-radius: 3px; 
   .splash__title span { display: inline; }
   .splash__frame { inset: calc(24px + var(--safe-top)) 24px calc(24px + var(--safe-bottom)); }
 
-  .cover .page__scroll { padding: 40px 20px; }
+  .cover .page__scroll { padding: 28px 20px; }
   .paper {
-    flex: 0 0 auto;
-    width: min(700px, 100%);
+    width: min(720px, 100%);
     margin: 0 auto;
-    padding: 56px 56px 0;
+    padding: calc(40px * var(--k)) calc(48px * var(--k)) 0;
     border-radius: 3px 10px 10px 3px;
     box-shadow:
       0 40px 80px -20px rgba(0, 0, 0, .55),
       0 0 0 1px rgba(0, 0, 0, .08),
       inset 22px 0 26px -22px rgba(60, 40, 10, .35);
   }
-  .cover__actions { border-radius: 0 0 10px 3px; }
 
   .hero { padding-top: 24px; }
   .lang-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 32px; }

@@ -7,14 +7,14 @@
   const BOOK = window.HYMN_BOOK;
 
   const SPLASH_MS = 5000;   // how long the blue title page stays
-  const TURN_MS   = 1100;   // paper turn between pages
-  const FLIP_MS   = 800;    // paper turn between hymns (prev / next)
+  const TURN_MS   = 1150;   // paper turn between pages
+  const FLIP_MS   = 850;    // paper turn between hymns (prev / next)
   const PUSH_MS   = 420;    // list -> hymn slide
   const FADE_MS   = 260;    // reduced-motion fallback
+  const STRIPS    = 12;     // the turning page is drawn as this many bending strips
   const ORDER = ["splash", "cover", "languages", "songs", "song"];
 
   const root = document.documentElement;
-  root.style.setProperty("--turn-ms", TURN_MS + "ms");
   root.style.setProperty("--push-ms", PUSH_MS + "ms");
   root.style.setProperty("--fade-ms", FADE_MS + "ms");
 
@@ -55,13 +55,22 @@
     return esc(t.slice(0, at)) + "<mark>" + esc(t.slice(at, at + q.length)) + "</mark>" + esc(t.slice(at + q.length));
   }
 
-  const icon = (id) => `<svg class="ic" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+  const icon = (id, cls = "") => `<svg class="ic ${cls}" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+
+  function stripIds(node) {
+    node.removeAttribute("id");
+    node.querySelectorAll("[id]").forEach((n) => n.removeAttribute("id"));
+    node.setAttribute("aria-hidden", "true");
+    node.inert = true;
+    return node;
+  }
 
   /* ---------- elements ---------- */
   const book = $("#book");
   const pages = Object.fromEntries(ORDER.map((id) => [id, document.getElementById(id)]));
   const scroller = (name) => pages[name].querySelector(".page__scroll");
   const el = {
+    paper: $(".paper"),
     coverNext: $("#coverNext"),
     langGrid: $("#langGrid"),
     songsTitle: $("#songsTitle"),
@@ -69,17 +78,24 @@
     search: $("#search"),
     clear: $("#searchClear"),
     keypad: $("#keypadToggle"),
+    favCount: $("#favCount"),
     count: $("#resultCount"),
     list: $("#songList"),
     empty: $("#emptyState"),
+    emptyIcon: $("#emptyIcon"),
+    emptyTitle: $("#emptyTitle"),
+    emptyText: $("#emptyText"),
     songNo: $("#songNo"),
     songLang: $("#songLang"),
     lyrics: $("#lyrics"),
+    favBtn: $("#favBtn"),
+    shareBtn: $("#shareBtn"),
     prev: $("#prevSong"),
     next: $("#nextSong"),
     pos: $("#songPos"),
     fontDown: $("#fontDown"),
-    fontUp: $("#fontUp")
+    fontUp: $("#fontUp"),
+    toast: $("#toast")
   };
 
   /* ---------- state ---------- */
@@ -92,9 +108,13 @@
     songs: [],
     index: [],
     current: -1,
+    filter: "all",
     scale: store.get("scale", 1),
     numeric: store.get("numeric", false),
-    pron: store.get("pron", "off")
+    pron: store.get("pron", "off"),
+    sound: store.get("sound", true),
+    favs: store.get("favs", {}),
+    wakeLock: null
   };
 
   /* ---------- pronunciation ---------- */
@@ -115,12 +135,206 @@
   const pron = (text, target) => Pronounce.transliterate(text, state.lang, target.id);
 
   /* =========================================================
+     Page sound — made in the browser, no audio files
+     ========================================================= */
+  const Sound = (() => {
+    let ctx = null;
+    let noise = null;
+
+    function unlock() {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      if (!ctx) {
+        ctx = new AC();
+        // Two seconds of soft (pink-ish) noise: the raw material of paper sounds.
+        const len = Math.floor(ctx.sampleRate * 2);
+        noise = ctx.createBuffer(1, len, ctx.sampleRate);
+        const d = noise.getChannelData(0);
+        let pink = 0;
+        for (let i = 0; i < len; i++) {
+          const white = Math.random() * 2 - 1;
+          pink = 0.97 * pink + 0.03 * white;
+          d[i] = white * 0.5 + pink * 4;
+        }
+      }
+      if (ctx.state === "suspended") ctx.resume().catch(() => {});
+      return ctx;
+    }
+
+    // A page turning: a rustling sweep that rises and falls, then a soft flap as it lands.
+    function flip(seconds) {
+      if (!state.sound) return;
+      const c = unlock();
+      if (!c || c.state !== "running") return;
+      const t = c.currentTime + 0.01;
+      const d = seconds;
+      const out = c.createGain();
+      out.gain.value = 1.6;
+      out.connect(c.destination);
+
+      const rustle = c.createBufferSource();
+      rustle.buffer = noise;
+      const hp = c.createBiquadFilter();
+      hp.type = "highpass";
+      hp.frequency.value = 500;
+      const bp = c.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.Q.value = 0.8;
+      bp.frequency.setValueAtTime(1200, t);
+      bp.frequency.exponentialRampToValueAtTime(4200, t + d * 0.4);
+      bp.frequency.exponentialRampToValueAtTime(1600, t + d * 0.9);
+      const crackle = c.createGain();     // uneven loudness = paper crinkle
+      for (let k = 0; k <= 28; k++) crackle.gain.setValueAtTime(0.45 + Math.random() * 0.9, t + (k / 28) * d);
+      const env = c.createGain();
+      env.gain.setValueAtTime(0.0001, t);
+      env.gain.exponentialRampToValueAtTime(0.28, t + d * 0.15);
+      env.gain.exponentialRampToValueAtTime(0.18, t + d * 0.55);
+      env.gain.exponentialRampToValueAtTime(0.0001, t + d * 0.95);
+      rustle.connect(hp).connect(bp).connect(crackle).connect(env).connect(out);
+      rustle.start(t, Math.random() * 0.5, d + 0.1);
+
+      const flap = c.createBufferSource();
+      flap.buffer = noise;
+      const lp = c.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.value = 700;
+      const fg = c.createGain();
+      const land = t + d * 0.82;
+      fg.gain.setValueAtTime(0.0001, land);
+      fg.gain.exponentialRampToValueAtTime(0.5, land + 0.015);
+      fg.gain.exponentialRampToValueAtTime(0.0001, land + 0.16);
+      flap.connect(lp).connect(fg).connect(out);
+      flap.start(land, Math.random(), 0.2);
+    }
+
+    return { flip, unlock };
+  })();
+
+  /* =========================================================
+     Paper turn — the page bends as it turns
+     ========================================================= */
+  const easeInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+
+  // Copies `source` into STRIPS vertical strips chained in 3D, each hinged on the previous one.
+  function buildFlipper(source) {
+    const W = book.clientWidth;
+    const w = W / STRIPS;
+    const top = (source.querySelector(".page__scroll") || {}).scrollTop || 0;
+    const backBg = getComputedStyle(source).getPropertyValue("--page-back").trim() || "#f3efe4";
+
+    const flip = document.createElement("div");
+    flip.className = "flip";
+    const strips = [];
+    let parent = flip;
+
+    for (let i = 0; i < STRIPS; i++) {
+      const seg = document.createElement("div");
+      seg.className = "flip__seg";
+      seg.style.left = (i ? w : 0) + "px";
+      seg.style.width = w + "px";
+
+      // Front: a full-width copy of the page, clipped to this strip (0.5px overlap hides seams).
+      const face = document.createElement("div");
+      face.className = "flip__face";
+      face.style.left = -i * w + "px";
+      face.style.width = W + "px";
+      face.style.clipPath = `inset(0 ${Math.max(0, W - (i + 1) * w - 0.5)}px 0 ${Math.max(0, i * w - 0.5)}px)`;
+      const copy = stripIds(source.cloneNode(true));
+      copy.classList.remove("is-under", "is-turning");
+      const shadeF = document.createElement("div");
+      shadeF.className = "flip__shade";
+      shadeF.style.left = i * w + "px";
+      shadeF.style.width = w + "px";
+      face.append(copy, shadeF);
+
+      // Back: the plain reverse side of the paper.
+      const backFace = document.createElement("div");
+      backFace.className = "flip__back";
+      backFace.style.width = w + 0.6 + "px";
+      backFace.style.background = backBg;
+      backFace.style.backgroundSize = `${W}px 100%`;
+      backFace.style.backgroundPosition = `${-(STRIPS - 1 - i) * w}px 0`;
+      const shadeB = document.createElement("div");
+      shadeB.className = "flip__shade";
+      shadeB.style.left = "0";
+      shadeB.style.width = "100%";
+      backFace.appendChild(shadeB);
+
+      seg.append(face, backFace);
+      parent.appendChild(seg);
+      strips.push({ seg, shadeF, shadeB, copy });
+      parent = seg;
+    }
+
+    book.appendChild(flip);
+    strips.forEach((s) => {
+      const sc = s.copy.querySelector(".page__scroll");
+      if (sc) sc.scrollTop = top;
+    });
+    return { flip, strips };
+  }
+
+  // Turns `source` away over `under` (or back onto it when reverse). The copy is made
+  // straight away, so the caller may hide or change `source` right after calling.
+  function paperTurn(source, under, reverse, ms) {
+    const { flip, strips } = buildFlipper(source);
+    const shadow = document.createElement("div");
+    shadow.className = "flip-shadow";
+    under.appendChild(shadow);
+    Sound.flip(ms / 1000);
+
+    // Bend grows toward the free edge, so the edge leads and the paper curls.
+    const weights = strips.map((_, i) => (i === 0 ? 0 : Math.pow(i / (STRIPS - 1), 2)));
+    const total = weights.reduce((a, b) => a + b, 0);
+    const shadeFront = (deg) => 0.6 * (1 - Math.max(Math.cos((deg * Math.PI) / 180), 0));
+    const shadeBack = (deg) => 0.45 * (1 - Math.max(-Math.cos((deg * Math.PI) / 180), 0));
+    const rgba = (o) => `rgba(8,12,28,${o.toFixed(3)})`;
+
+    return new Promise((resolve) => {
+      const t0 = performance.now();
+      const frame = (now) => {
+        const p = Math.min(1, (now - t0) / ms);
+        const q = reverse ? 1 - p : p;
+        const hinge = -180 * easeInOut(q);
+        const bend = -100 * Math.sin(Math.PI * Math.pow(q, 0.7));
+
+        // Angle of each strip in space, then shade by how far it faces away from the light.
+        const abs = [];
+        let a = 0;
+        strips.forEach((s, i) => {
+          const local = i === 0 ? hinge : (bend * weights[i]) / total;
+          a += local;
+          abs.push(a);
+          s.seg.style.transform = `rotateY(${local.toFixed(3)}deg)`;
+        });
+        let reach = 0;
+        strips.forEach((s, i) => {
+          const l = (abs[Math.max(0, i - 1)] + abs[i]) / 2;
+          const r = (abs[i] + abs[Math.min(STRIPS - 1, i + 1)]) / 2;
+          s.shadeF.style.background = `linear-gradient(90deg,${rgba(shadeFront(l))},${rgba(shadeFront(r))})`;
+          s.shadeB.style.background = `linear-gradient(270deg,${rgba(shadeBack(l))},${rgba(shadeBack(r))})`;
+          reach += Math.max(0, Math.cos((abs[i] * Math.PI) / 180)) / STRIPS;
+        });
+        shadow.style.setProperty("--x", (reach * 100).toFixed(1));
+        shadow.style.opacity = (Math.sin(Math.PI * q) * 0.95).toFixed(3);
+
+        if (p < 1) requestAnimationFrame(frame);
+        else {
+          flip.remove();
+          shadow.remove();
+          resolve();
+        }
+      };
+      requestAnimationFrame(frame);
+    });
+  }
+
+  /* =========================================================
      Page transitions
      ========================================================= */
   const ANIM = {
-    turn: { ms: TURN_MS, enter: TURN_MS * 0.45, fwd: [["turn-out"], ["turn-under"]], back: [["turn-under", "is-back"], ["turn-in"]] },
-    push: { ms: PUSH_MS, enter: PUSH_MS * 0.4,  fwd: [["push-out"], ["push-in"]],    back: [["pop-out"], ["pop-in"]] },
-    fade: { ms: FADE_MS, enter: 0,              fwd: [["fade-out"], ["fade-in"]],    back: [["fade-out"], ["fade-in"]] }
+    push: { ms: PUSH_MS, enter: PUSH_MS * 0.4, fwd: [["push-out"], ["push-in"]], back: [["pop-out"], ["pop-in"]] },
+    fade: { ms: FADE_MS, enter: 0,             fwd: [["fade-out"], ["fade-in"]], back: [["fade-out"], ["fade-in"]] }
   };
 
   function transition(name, anim, back) {
@@ -129,37 +343,57 @@
     if (from === to) return Promise.resolve();
     if (reduceMotion.matches) anim = "fade";
 
-    const spec = ANIM[anim];
-    const [fromCls, toCls] = back ? spec.back : spec.fwd;
     state.busy = true;
-
     to.inert = false;
-    to.style.setProperty("--enter-delay", (back ? 0 : spec.enter) + "ms");
+    to.style.setProperty("--enter-delay", (back ? 0 : anim === "turn" ? TURN_MS * 0.5 : ANIM[anim].enter) + "ms");
     if (!back) {               // replay entrance animations on forward navigation
       to.classList.remove("is-entering");
       void to.offsetWidth;
       to.classList.add("is-entering");
     }
+    if (name === "cover") fitCover();
+
+    if (anim === "turn") {
+      // Forward: the current page turns away. Back: the previous page turns back over it.
+      const source = back ? to : from;
+      const under = back ? from : to;
+      under.classList.add("is-under");
+      const done = paperTurn(source, under, back, TURN_MS);
+      source.classList.add("is-turning");
+      return done.then(() => {
+        source.classList.remove("is-turning");
+        under.classList.remove("is-under");
+        settle(from, to, name);
+      });
+    }
+
+    const spec = ANIM[anim];
+    const [fromCls, toCls] = back ? spec.back : spec.fwd;
     from.classList.add(...fromCls);
     to.classList.add(...toCls);
-
     return wait(spec.ms + 30).then(() => {
-      from.classList.remove("is-active", ...fromCls);
-      from.inert = true;
+      from.classList.remove(...fromCls);
       to.classList.remove(...toCls);
-      to.classList.add("is-active");
-      state.page = name;
-      state.busy = false;
-
-      const target = to.querySelector("[data-focus]");
-      if (target) target.focus({ preventScroll: true });
-
-      if (state.queued) {
-        const q = state.queued;
-        state.queued = null;
-        applyRoute(q);
-      }
+      settle(from, to, name);
     });
+  }
+
+  function settle(from, to, name) {
+    from.classList.remove("is-active");
+    from.inert = true;
+    to.classList.add("is-active");
+    state.page = name;
+    state.busy = false;
+    keepAwake(name === "song");
+
+    const target = to.querySelector("[data-focus]");
+    if (target) target.focus({ preventScroll: true });
+
+    if (state.queued) {
+      const q = state.queued;
+      state.queued = null;
+      applyRoute(q);
+    }
   }
 
   /* =========================================================
@@ -212,6 +446,29 @@
   };
   const back = () => parentOf[state.page] && goBack(parentOf[state.page]());
 
+  // A shared link looks like  …/conventional-hymns/#/te/12
+  function linkedSong() {
+    const m = location.hash.match(/^#\/([a-z]{2})\/(\d+)$/);
+    if (!m) return null;
+    const number = Number(m[2]);
+    return (BOOK.songs[m[1]] || []).some((s) => s.number === number) ? { lang: m[1], number } : null;
+  }
+
+  /* =========================================================
+     Title page — always fits one screen
+     ========================================================= */
+  function fitCover() {
+    const paper = el.paper;
+    let lo = 0.5, hi = 1.45;
+    for (let k = 0; k < 10; k++) {
+      const mid = (lo + hi) / 2;
+      paper.style.setProperty("--k", mid.toFixed(3));
+      if (paper.scrollHeight <= paper.clientHeight + 1) lo = mid;
+      else hi = mid;
+    }
+    paper.style.setProperty("--k", lo.toFixed(3));
+  }
+
   /* =========================================================
      Languages
      ========================================================= */
@@ -263,8 +520,53 @@
     el.search.value = "";
     store.set("lang", lang.code);
     markRecent();
-    renderList();
+    setFilter("all");
     scroller("songs").scrollTop = 0;
+  }
+
+  /* =========================================================
+     Favorites
+     ========================================================= */
+  const favList = () => state.favs[state.lang] || [];
+  const isFav = (number) => favList().includes(number);
+
+  function toggleFav() {
+    const s = state.songs[state.current];
+    if (!s) return;
+    const adding = !isFav(s.number);
+    const list = favList().filter((n) => n !== s.number);
+    if (adding) list.push(s.number);
+    state.favs[state.lang] = list;
+    store.set("favs", state.favs);
+    updateFavUi();
+    renderList();
+    if (adding) {
+      el.favBtn.classList.remove("pop");
+      void el.favBtn.offsetWidth;
+      el.favBtn.classList.add("pop");
+    }
+    toast(adding ? "Added to favorites" : "Removed from favorites");
+  }
+
+  function updateFavUi() {
+    const s = state.songs[state.current];
+    const on = !!s && isFav(s.number);
+    el.favBtn.classList.toggle("is-fav", on);
+    el.favBtn.setAttribute("aria-pressed", String(on));
+    el.favBtn.setAttribute("aria-label", on ? "Remove from favorites" : "Add to favorites");
+    el.favCount.textContent = favList().length;
+  }
+
+  function setFilter(f) {
+    state.filter = f;
+    pages.songs.querySelectorAll("[data-filter]").forEach((b) => {
+      const on = b.dataset.filter === f;
+      b.classList.toggle("is-on", on);
+      b.setAttribute("aria-pressed", String(on));
+    });
+    pages.songs.style.setProperty("--enter-delay", "0ms");
+    updateFavUi();
+    renderList();
   }
 
   /* =========================================================
@@ -274,7 +576,7 @@
   let lastRows = [];
 
   function search(q) {
-    if (!q) return state.songs.map((_, i) => ({ i, line: null }));
+    if (!q) return state.songs.map((_, i) => ({ i, line: null, roman: false }));
     const isNum = /^\d+$/.test(q);
     const qk = /^[a-z][a-z\s'.-]*$/.test(q) ? Pronounce.looseKey(q) : "";
     const rows = [];
@@ -306,7 +608,8 @@
   function renderList() {
     const raw = el.search.value.trim();
     const q = norm(raw);
-    const rows = search(q);
+    let rows = search(q);
+    if (state.filter === "fav") rows = rows.filter((r) => isFav(state.songs[r.i].number));
     lastRows = rows;
 
     el.clear.hidden = !raw;
@@ -327,15 +630,22 @@
               <span class="song-item__title">${hl(s.title, q)}</span>
               <span class="song-item__preview${isPron ? " is-pron" : ""}"${plang ? ` lang="${plang}"` : ""}>${hl(preview, q)}</span>
             </span>
+            ${isFav(s.number) ? icon("heart", "song-item__fav") : ""}
             ${icon("chevron")}
           </button>
         </li>`;
     }).join("");
 
+    const favMode = state.filter === "fav";
     el.empty.hidden = rows.length > 0;
+    el.emptyIcon.setAttribute("href", favMode && !raw ? "#i-heart" : "#i-search");
+    el.emptyTitle.textContent = favMode && !raw ? "No favorites yet" : "No hymns found";
+    el.emptyText.textContent = favMode && !raw
+      ? "Open a hymn and tap the heart to keep it here."
+      : "Try another song number or a word from the title.";
     el.count.textContent = raw
       ? `${rows.length} ${rows.length === 1 ? "result" : "results"} for “${raw}”`
-      : `All hymns · ${rows.length}`;
+      : `${favMode ? "Favorites" : "All hymns"} · ${rows.length}`;
   }
 
   let searchTimer = 0;
@@ -407,6 +717,7 @@
     el.prev.disabled = i <= 0;
     el.next.disabled = i >= state.songs.length - 1;
     el.pos.textContent = `${i + 1} / ${state.songs.length}`;
+    updateFavUi();
     if (!keepScroll) scroller("song").scrollTop = 0;
   }
 
@@ -421,7 +732,7 @@
     renderList();
   }
 
-  // Prev / next hymn: turn a paper copy of the current page over the new one.
+  // Prev / next hymn: the page bends over like a real book page.
   function changeSong(delta) {
     const i = state.current + delta;
     if (state.busy || state.page !== "song" || i < 0 || i >= state.songs.length) return;
@@ -431,30 +742,25 @@
 
     state.busy = true;
     const real = pages.song;
-    const oldTop = scroller("song").scrollTop;
-    const ghost = real.cloneNode(true);
-    ghost.removeAttribute("id");
-    ghost.querySelectorAll("[id]").forEach((n) => n.removeAttribute("id"));
-    ghost.setAttribute("aria-hidden", "true");
-    ghost.inert = true;
-    ghost.classList.remove("is-active");
-    ghost.style.setProperty("--turn-ms", FLIP_MS + "ms");
-    real.style.setProperty("--turn-ms", FLIP_MS + "ms");
-
-    const forward = delta > 0;
-    ghost.classList.add(...(forward ? ["turn-out"] : ["turn-under", "is-back"]));
-    book.appendChild(ghost);
-    ghost.querySelector(".page__scroll").scrollTop = oldTop;
-
-    renderSong(i);
-    real.classList.add(forward ? "turn-under" : "turn-in");
-
-    wait(FLIP_MS + 30).then(() => {
-      ghost.remove();
-      real.classList.remove("turn-under", "turn-in");
-      real.style.removeProperty("--turn-ms");
-      state.busy = false;
-    });
+    let done;
+    if (delta > 0) {
+      done = paperTurn(real, real, false, FLIP_MS);   // a copy of this hymn turns away over the next one
+      renderSong(i);
+    } else {
+      const old = stripIds(real.cloneNode(true));       // keep this hymn underneath…
+      old.classList.remove("is-active");
+      old.classList.add("is-under");
+      book.appendChild(old);
+      old.querySelector(".page__scroll").scrollTop = scroller("song").scrollTop;
+      renderSong(i);
+      done = paperTurn(real, old, true, FLIP_MS);       // …while the previous hymn turns back over it
+      real.classList.add("is-turning");
+      done = done.then(() => {
+        old.remove();
+        real.classList.remove("is-turning");
+      });
+    }
+    done.then(() => { state.busy = false; });
   }
 
   function applyScale() {
@@ -466,6 +772,60 @@
     state.scale = Math.round(Math.min(1.6, Math.max(0.8, state.scale + d)) * 10) / 10;
     store.set("scale", state.scale);
     applyScale();
+  }
+
+  async function shareSong() {
+    const s = state.songs[state.current];
+    if (!s) return;
+    const url = `${location.origin}${location.pathname}#/${state.lang}/${s.number}`;
+    const title = `${s.title} — Hymn ${s.number}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title, text: `${title} (${state.langObj.name})`, url });
+        return;
+      }
+      await navigator.clipboard.writeText(`${title}\n${url}`);
+      toast("Link copied");
+    } catch (e) {
+      if (!e || e.name !== "AbortError") toast("Couldn't share this hymn");
+    }
+  }
+
+  // Keep the screen on while a hymn is open, so it doesn't dim mid-song.
+  async function keepAwake(on) {
+    try {
+      if (on && !state.wakeLock && "wakeLock" in navigator && document.visibilityState === "visible") {
+        state.wakeLock = await navigator.wakeLock.request("screen");
+        state.wakeLock.addEventListener("release", () => { state.wakeLock = null; });
+      } else if (!on && state.wakeLock) {
+        await state.wakeLock.release();
+        state.wakeLock = null;
+      }
+    } catch { state.wakeLock = null; }
+  }
+
+  /* ---------- sound toggle & toast ---------- */
+  function applySound() {
+    document.querySelectorAll("[data-sound]").forEach((b) => {
+      b.setAttribute("aria-pressed", String(state.sound));
+      b.setAttribute("aria-label", state.sound ? "Turn page sound off" : "Turn page sound on");
+      b.querySelector("use").setAttribute("href", state.sound ? "#i-volume" : "#i-mute");
+    });
+  }
+  function toggleSound() {
+    state.sound = !state.sound;
+    store.set("sound", state.sound);
+    applySound();
+    if (state.sound) { Sound.unlock(); setTimeout(() => Sound.flip(0.6), 60); }
+    toast(state.sound ? "Page sound on" : "Page sound off");
+  }
+
+  let toastTimer = 0;
+  function toast(msg) {
+    el.toast.textContent = msg;
+    el.toast.classList.add("is-on");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.toast.classList.remove("is-on"), 1900);
   }
 
   /* =========================================================
@@ -487,12 +847,18 @@
   }
 
   function bind() {
+    // Browsers only allow sound after the first tap or key press.
+    const unlock = () => { if (state.sound) Sound.unlock(); };
+    document.addEventListener("pointerdown", unlock, { passive: true });
+    document.addEventListener("keydown", unlock);
+
     // Cover
     el.coverNext.addEventListener("click", () => go({ page: "languages" }, "turn"));
     onSwipe(pages.cover, (dir) => dir === "left" && go({ page: "languages" }, "turn"));
 
-    // Back buttons
+    // Back buttons & sound toggles
     document.querySelectorAll("[data-back]").forEach((b) => b.addEventListener("click", back));
+    document.querySelectorAll("[data-sound]").forEach((b) => b.addEventListener("click", toggleSound));
 
     // Languages
     el.langGrid.addEventListener("click", (e) => {
@@ -500,7 +866,7 @@
       if (card) go({ page: "songs", lang: card.dataset.lang }, "turn");
     });
 
-    // Search
+    // Search & filters
     el.search.addEventListener("input", onSearchInput);
     el.search.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && lastRows.length) {
@@ -521,6 +887,7 @@
       el.search.blur();                         // re-focus so the phone swaps keyboards
       requestAnimationFrame(() => el.search.focus());
     });
+    pages.songs.querySelectorAll("[data-filter]").forEach((b) => b.addEventListener("click", () => setFilter(b.dataset.filter)));
 
     // Song list
     el.list.addEventListener("click", (e) => {
@@ -533,11 +900,16 @@
       const chip = e.target.closest("[data-pron]");
       if (chip) setPron(chip.dataset.pron);
     });
+    el.favBtn.addEventListener("click", toggleFav);
+    el.shareBtn.addEventListener("click", shareSong);
     el.prev.addEventListener("click", () => changeSong(-1));
     el.next.addEventListener("click", () => changeSong(1));
     el.fontDown.addEventListener("click", () => setScale(-0.1));
     el.fontUp.addEventListener("click", () => setScale(0.1));
     onSwipe(scroller("song"), (dir) => changeSong(dir === "left" ? 1 : -1));
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") keepAwake(state.page === "song");
+    });
 
     // Sticky header shadow
     ORDER.forEach((name) => {
@@ -558,13 +930,19 @@
       else if (state.page === "songs" && e.key === "/") { e.preventDefault(); el.search.focus(); }
       else if (state.page === "song" && e.key === "ArrowRight") changeSong(1);
       else if (state.page === "song" && e.key === "ArrowLeft") changeSong(-1);
+      else if (state.page === "song" && e.key.toLowerCase() === "f") toggleFav();
       else if (e.key === "Escape") back();
     });
 
-    // Keep the 3D depth natural on any screen width
-    const setPerspective = () => { book.style.perspective = Math.max(1800, window.innerWidth * 2.4) + "px"; };
-    window.addEventListener("resize", setPerspective);
-    setPerspective();
+    // Keep the 3D depth natural on any screen width, and keep the title page fitted.
+    let resizeFrame = 0;
+    const onResize = () => {
+      book.style.perspective = Math.max(1200, window.innerWidth * 1.8) + "px";
+      cancelAnimationFrame(resizeFrame);
+      resizeFrame = requestAnimationFrame(fitCover);
+    };
+    window.addEventListener("resize", onResize);
+    onResize();
   }
 
   /* =========================================================
@@ -581,32 +959,53 @@
     });
   }
 
+  function leaveSplashTo(link) {
+    history.replaceState({ page: "cover", depth: 0 }, "", location.pathname + location.search);
+    if (!link) { show({ page: "cover" }, false, "turn"); return; }
+    // Opened from a shared hymn link: go straight to that hymn (back still walks the book).
+    setLanguage(link.lang);
+    const index = state.songs.findIndex((s) => s.number === link.number);
+    history.pushState({ page: "languages", depth: 1 }, "");
+    history.pushState({ page: "songs", lang: link.lang, depth: 2 }, "");
+    history.pushState({ page: "song", lang: link.lang, index, depth: 3 }, "");
+    show({ page: "song", lang: link.lang, index }, false, "turn");
+  }
+
   function init() {
     splitTitle();
     ORDER.forEach((name) => { if (name !== "splash") pages[name].inert = true; });
     renderLanguages();
     applyScale();
     applyKeypad();
+    applySound();
     bind();
 
     history.replaceState({ page: "splash", depth: 0 }, "");
+    const link = linkedSong();
+
     // SPLASH_MS counts from page open, including the short wait for fonts.
     // Tapping the splash once it is shown skips the rest of the wait.
     let left = false;
     const leaveSplash = () => {
       if (left || state.page !== "splash") return;
       left = true;
-      history.replaceState({ page: "cover", depth: 0 }, "");
-      show({ page: "cover" }, false, "turn");
+      leaveSplashTo(link);
     };
     const fonts = document.fonts ? Promise.race([document.fonts.ready, wait(600)]) : Promise.resolve();
     fonts.then(() => {
+      fitCover();
       const remaining = Math.max(0, SPLASH_MS - performance.now());
       pages.splash.style.setProperty("--splash-left", remaining + "ms");
       pages.splash.classList.add("is-ready");
       pages.splash.addEventListener("click", leaveSplash);
       setTimeout(leaveSplash, remaining);
     });
+    if (document.fonts) document.fonts.ready.then(fitCover);
+
+    // Works offline and can be installed on the phone's home screen.
+    if ("serviceWorker" in navigator && location.protocol === "https:") {
+      window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+    }
   }
 
   init();

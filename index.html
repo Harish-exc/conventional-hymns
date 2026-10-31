@@ -5,13 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#061a52">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="description" content="Conventional Hymns — hymn book in Telugu, Odia, English, Hindi, Marathi and Bangla.">
   <title>Conventional Hymns</title>
 
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Noto+Sans+Oriya:wght@400;600;800&family=Noto+Sans+Telugu:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=2">
+  <link rel="stylesheet" href="styles.css?v=3">
 </head>
 <body>
 
@@ -23,7 +26,10 @@
     <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
     <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></symbol>
     <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
-    <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5v14z"/><path d="M6.5 17A2.5 2.5 0 0 0 4 19.5 2.5 2.5 0 0 0 6.5 22H20v-5"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v13"/></symbol>
+    <symbol id="i-volume" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></symbol>
+    <symbol id="i-mute" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6"/></symbol>
   </svg>
 
   <main id="book" class="book">
@@ -39,7 +45,7 @@
       <div class="splash__progress" aria-hidden="true"><i></i></div>
     </section>
 
-    <!-- 2 · Title page (from the printed book) -->
+    <!-- 2 · Title page (from the printed book) — always fits one screen -->
     <section class="page cover" id="cover" aria-label="Hallelujah Sangeet">
       <div class="page__scroll">
         <article class="paper" lang="or">
@@ -62,7 +68,10 @@
           </footer>
 
           <div class="cover__actions" lang="en">
-            <span class="cover__hint">Swipe or tap to turn the page</span>
+            <button class="icon-btn sound-btn" type="button" data-sound aria-pressed="true" aria-label="Turn page sound off">
+              <svg class="ic" aria-hidden="true"><use href="#i-volume"/></svg>
+            </button>
+            <span class="cover__hint">Swipe or tap Next</span>
             <button class="btn-next" id="coverNext" type="button">
               Next
               <svg class="ic" aria-hidden="true"><use href="#i-next"/></svg>
@@ -81,6 +90,11 @@
               <svg class="ic" aria-hidden="true"><use href="#i-back"/></svg>
             </button>
             <span class="brand">Conventional Hymns</span>
+            <div class="topbar__actions">
+              <button class="icon-btn sound-btn" type="button" data-sound aria-pressed="true" aria-label="Turn page sound off">
+                <svg class="ic" aria-hidden="true"><use href="#i-volume"/></svg>
+              </button>
+            </div>
           </div>
         </header>
 
@@ -120,15 +134,22 @@
             <button class="search__mode" id="keypadToggle" type="button" aria-pressed="false"
                     title="Switch between number keypad and letters">123</button>
           </div>
+
+          <div class="filters" role="group" aria-label="Show">
+            <button class="chip is-on" type="button" data-filter="all" aria-pressed="true">All hymns</button>
+            <button class="chip" type="button" data-filter="fav" aria-pressed="false">
+              <svg class="ic" aria-hidden="true"><use href="#i-heart"/></svg>Favorites<span class="chip__n" id="favCount">0</span>
+            </button>
+          </div>
         </header>
 
         <div class="container container--list">
           <p class="result-count" id="resultCount" aria-live="polite"></p>
           <ul class="song-list" id="songList"></ul>
           <div class="empty" id="emptyState" hidden>
-            <div class="empty__icon"><svg class="ic" aria-hidden="true"><use href="#i-search"/></svg></div>
-            <p class="empty__title">No hymns found</p>
-            <p class="empty__text">Try another song number or a word from the title.</p>
+            <div class="empty__icon"><svg class="ic" aria-hidden="true"><use href="#i-search" id="emptyIcon"/></svg></div>
+            <p class="empty__title" id="emptyTitle">No hymns found</p>
+            <p class="empty__text" id="emptyText">Try another song number or a word from the title.</p>
           </div>
         </div>
       </div>
@@ -146,7 +167,13 @@
               <p class="topbar__title" id="songNo">Hymn</p>
               <p class="topbar__sub" id="songLang"></p>
             </div>
-            <div class="font-ctrl" role="group" aria-label="Text size">
+            <div class="topbar__actions">
+              <button class="icon-btn" id="favBtn" type="button" aria-pressed="false" aria-label="Add to favorites">
+                <svg class="ic" aria-hidden="true"><use href="#i-heart"/></svg>
+              </button>
+              <button class="icon-btn" id="shareBtn" type="button" aria-label="Share this hymn">
+                <svg class="ic" aria-hidden="true"><use href="#i-share"/></svg>
+              </button>
               <button class="icon-btn font-ctrl__btn" id="fontDown" type="button" aria-label="Smaller text">A<sup>−</sup></button>
               <button class="icon-btn font-ctrl__btn font-ctrl__btn--big" id="fontUp" type="button" aria-label="Larger text">A<sup>+</sup></button>
             </div>
@@ -171,8 +198,10 @@
 
   </main>
 
-  <script src="songs.js?v=2"></script>
-  <script src="pronounce.js?v=2"></script>
-  <script src="app.js?v=2"></script>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="songs.js?v=3"></script>
+  <script src="pronounce.js?v=3"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>

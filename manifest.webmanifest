@@ -1,0 +1,14 @@
+{
+  "name": "Conventional Hymns",
+  "short_name": "Hymns",
+  "description": "Hymn book in Telugu, Odia, English, Hindi, Marathi and Bangla.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#061a52",
+  "theme_color": "#061a52",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
