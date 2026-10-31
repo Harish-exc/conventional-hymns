@@ -208,8 +208,8 @@ button:disabled { cursor: default; }
 .splash__frame {
   position: absolute;
   inset: calc(14px + var(--safe-top)) 14px calc(14px + var(--safe-bottom));
-  border: 1px solid rgba(255, 255, 255, .32);
-  border-radius: 6px;
+  border: 1px solid rgba(233, 199, 102, .5);
+  border-radius: 9px;
   opacity: 0;
   transform: scale(1.03);
 }
@@ -217,8 +217,51 @@ button:disabled { cursor: default; }
   content: "";
   position: absolute;
   inset: 6px;
-  border: 1px solid rgba(255, 255, 255, .14);
-  border-radius: 3px;
+  border: 1px solid rgba(233, 199, 102, .2);
+  border-radius: 4px;
+}
+.splash__frame::before {    /* ornamented gold corners */
+  content: "";
+  position: absolute;
+  inset: -1px;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Cg fill='none' stroke='%23e9c766' stroke-width='1.2'%3E%3Cpath d='M.6 30V9.6a9 9 0 0 1 9-9H30'/%3E%3Cpath d='M5 30V13a8 8 0 0 1 8-8h17' opacity='.55'/%3E%3C/g%3E%3Cpath d='M11 11l3.5-3.5L18 11l-3.5 3.5z' fill='%23e9c766'/%3E%3C/svg%3E") top left / 30px no-repeat,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Cg transform='rotate(90 15 15)'%3E%3Cg fill='none' stroke='%23e9c766' stroke-width='1.2'%3E%3Cpath d='M.6 30V9.6a9 9 0 0 1 9-9H30'/%3E%3Cpath d='M5 30V13a8 8 0 0 1 8-8h17' opacity='.55'/%3E%3C/g%3E%3Cpath d='M11 11l3.5-3.5L18 11l-3.5 3.5z' fill='%23e9c766'/%3E%3C/g%3E%3C/svg%3E") top right / 30px no-repeat,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Cg transform='rotate(180 15 15)'%3E%3Cg fill='none' stroke='%23e9c766' stroke-width='1.2'%3E%3Cpath d='M.6 30V9.6a9 9 0 0 1 9-9H30'/%3E%3Cpath d='M5 30V13a8 8 0 0 1 8-8h17' opacity='.55'/%3E%3C/g%3E%3Cpath d='M11 11l3.5-3.5L18 11l-3.5 3.5z' fill='%23e9c766'/%3E%3C/g%3E%3C/svg%3E") bottom right / 30px no-repeat,
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Cg transform='rotate(270 15 15)'%3E%3Cg fill='none' stroke='%23e9c766' stroke-width='1.2'%3E%3Cpath d='M.6 30V9.6a9 9 0 0 1 9-9H30'/%3E%3Cpath d='M5 30V13a8 8 0 0 1 8-8h17' opacity='.55'/%3E%3C/g%3E%3Cpath d='M11 11l3.5-3.5L18 11l-3.5 3.5z' fill='%23e9c766'/%3E%3C/g%3E%3C/svg%3E") bottom left / 30px no-repeat;
+}
+
+/* Golden light rays turning slowly behind the emblem */
+.splash__rays {
+  position: absolute;
+  inset: -160%;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, rgba(246, 227, 161, .13) 0deg 3deg, rgba(246, 227, 161, 0) 3deg 12deg);
+  -webkit-mask: radial-gradient(circle, #000 0%, rgba(0, 0, 0, .55) 30%, transparent 62%);
+  mask: radial-gradient(circle, #000 0%, rgba(0, 0, 0, .55) 30%, transparent 62%);
+  opacity: 0;
+  pointer-events: none;
+}
+.splash.is-ready .splash__rays { animation: fadeIn 1.4s ease .6s forwards, spin 90s linear infinite; }
+
+/* Gold sparkles drifting upward (created by app.js) */
+.splash__sparks { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.spark {
+  position: absolute;
+  bottom: -12px;
+  left: var(--x);
+  width: var(--s);
+  height: var(--s);
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff7d6 0%, #e9c766 45%, rgba(233, 199, 102, 0) 70%);
+  opacity: 0;
+}
+.splash.is-ready .spark { animation: sparkUp var(--t) linear var(--d) infinite; }
+@keyframes sparkUp {
+  0%   { opacity: 0; transform: translate3d(0, 0, 0); }
+  12%  { opacity: .9; }
+  85%  { opacity: .5; }
+  100% { opacity: 0; transform: translate3d(var(--dx), -105vh, 0); }
 }
 .splash__glow {
   position: absolute;
@@ -320,18 +363,18 @@ button:disabled { cursor: default; }
 .splash__rule {
   display: flex; align-items: center; justify-content: center; gap: 12px;
   margin-top: 22px;
-  color: #fff;
+  color: var(--gold-300);
   opacity: 0;
 }
 .splash__rule i { font-style: normal; font-size: 14px; }
 .splash__rule span {
   height: 1px;
   width: clamp(54px, 20vw, 130px);
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .85));
+  background: linear-gradient(90deg, transparent, var(--gold-300));
   transform: scaleX(0);
   transform-origin: right;
 }
-.splash__rule span:last-child { background: linear-gradient(270deg, transparent, rgba(255, 255, 255, .85)); transform-origin: left; }
+.splash__rule span:last-child { background: linear-gradient(270deg, transparent, var(--gold-300)); transform-origin: left; }
 
 .splash.is-ready .splash__frame { animation: frameIn 1s var(--ease-out) .1s forwards; }
 .splash.is-ready .splash__glow  { animation: fadeIn .8s ease forwards, glow 3.2s ease-in-out .8s infinite alternate; }
@@ -469,6 +512,9 @@ button:disabled { cursor: default; }
 }
 /* The title page never scrolls: app.js picks --k so everything fits the screen. */
 .cover .page__scroll { display: flex; flex-direction: column; overflow: hidden; }
+/* Very short screens (a phone held sideways): if even the smallest text can't fit, let the page scroll */
+.cover .page__scroll:has(.paper.is-scrollable) { overflow-y: auto; }
+.paper.is-scrollable { flex: 0 0 auto; overflow: visible; }
 
 .paper {
   --k: 1;

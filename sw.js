@@ -1,14 +1,14 @@
 /* Conventional Hymns — offline support.
    When you change app files, bump the ?v= numbers in index.html
    and here, and change CACHE, so phones pick up the new version. */
-const CACHE = "ch-v11";
+const CACHE = "ch-v12";
 const CORE = [
   "./",
   "index.html",
-  "styles.css?v=11",
-  "songs.js?v=11",
-  "pronounce.js?v=11",
-  "app.js?v=11",
+  "styles.css?v=12",
+  "songs.js?v=12",
+  "pronounce.js?v=12",
+  "app.js?v=12",
   "icon.svg",
   "logo.webp",
   "manifest.webmanifest"

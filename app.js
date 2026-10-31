@@ -381,7 +381,7 @@
   }
 
   window.addEventListener("popstate", (e) => {
-    closeSheet();
+    if (sheetOpen()) { hideSheet(); return; }   // Back closes the reading-options panel first
     const route = e.state || { page: "intro" };
     if (route.page === "splash" || state.page === "splash") return;
     if (state.busy) { state.queued = route; return; }
@@ -409,6 +409,7 @@
      ========================================================= */
   function fitCover() {
     const paper = el.paper;
+    paper.classList.remove("is-scrollable");
     let lo = 0.5, hi = 1.45;
     for (let k = 0; k < 10; k++) {
       const mid = (lo + hi) / 2;
@@ -417,6 +418,7 @@
       else hi = mid;
     }
     paper.style.setProperty("--k", lo.toFixed(3));
+    paper.classList.toggle("is-scrollable", paper.scrollHeight > paper.clientHeight + 1);
   }
 
   // Title page text in the chosen language (falls back to the printed Odia page).
@@ -491,6 +493,7 @@
     const lang = BOOK.languages.find((l) => l.code === code) || BOOK.languages[0];
     state.lang = lang.code;
     state.langObj = lang;
+    state.current = -1;
     state.songs = (BOOK.songs[lang.code] || []).slice().sort((a, b) => a.number - b.number);
     const indic = !!Pronounce.scriptOfLang(lang.code);
     state.index = state.songs.map((s) => {
@@ -668,10 +671,11 @@
 
   // Scroll just far enough that the search bar sits under the top bar,
   // so results start right below it (the header card moves out of the way).
-  function pinSearch() {
+  function pinSearch(onlyDown) {
     const sc = scroller("songs");
-    const point = $("#searchWrap").offsetTop - sc.querySelector(".topbar").offsetHeight;
-    sc.scrollTop = Math.max(0, point);
+    const point = Math.max(0, $("#searchWrap").offsetTop - sc.querySelector(".topbar").offsetHeight);
+    if (onlyDown && sc.scrollTop >= point) return;
+    sc.scrollTop = point;
   }
 
   function applyKeypad() {
@@ -751,7 +755,7 @@
   function setPron(id) {
     state.pron = id;
     store.set("pron", id);
-    if (state.current >= 0 && state.lang) {
+    if (state.page === "song" && state.current >= 0) {
       renderSong(state.current, true);
       el.lyrics.classList.remove("is-swapping");
       void el.lyrics.offsetWidth;
@@ -817,16 +821,27 @@
     el.fsToggle.setAttribute("aria-checked", String(!!document.fullscreenElement));
   }
 
+  const sheetOpen = () => el.sheet.classList.contains("is-open");
+
   function openSheet() {
+    if (sheetOpen() || state.busy) return;
     renderSheet();
     sheetReturn = document.activeElement;
     el.sheet.classList.add("is-open");
     el.sheet.setAttribute("aria-hidden", "false");
+    history.pushState({ ...history.state, sheet: true }, "");
     requestAnimationFrame(() => el.sheetPanel.focus({ preventScroll: true }));
   }
 
+  // Done, the backdrop and Escape step back through history; the popstate handler hides the panel.
   function closeSheet() {
-    if (!el.sheet.classList.contains("is-open")) return;
+    if (!sheetOpen()) return;
+    if (history.state && history.state.sheet) history.back();
+    else hideSheet();
+  }
+
+  function hideSheet() {
+    if (!sheetOpen()) return;
     el.sheet.classList.remove("is-open");
     el.sheet.setAttribute("aria-hidden", "true");
     if (sheetReturn && sheetReturn.focus) sheetReturn.focus({ preventScroll: true });
@@ -941,7 +956,7 @@
   function bind() {
     // Cover
     el.coverNext.addEventListener("click", openHymns);
-    onSwipe(pages.cover, (dir) => dir === "left" && openHymns());
+    onSwipe(pages.cover, (dir) => (dir === "left" ? openHymns() : back()));
 
     // Back buttons
     document.querySelectorAll("[data-back]").forEach((b) => b.addEventListener("click", back));
@@ -960,7 +975,7 @@
 
     // Search & filters
     el.search.addEventListener("input", onSearchInput);
-    el.search.addEventListener("focus", () => setTimeout(pinSearch, 60));
+    el.search.addEventListener("focus", () => setTimeout(() => pinSearch(true), 60));
     el.search.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && lastRows.length) {
         e.preventDefault();
@@ -1080,6 +1095,17 @@
     });
   }
 
+  // Gold sparkles drifting up the front page, each with its own path and pace.
+  function makeSparks() {
+    const box = $("#splashSparks");
+    let html = "";
+    for (let i = 0; i < 22; i++) {
+      const r = (a, b) => (a + Math.random() * (b - a)).toFixed(2);
+      html += `<i class="spark" style="--x:${r(2, 98)}%;--s:${r(2, 5)}px;--t:${r(6, 11)}s;--d:${r(0, 6)}s;--dx:${r(-40, 40)}px"></i>`;
+    }
+    box.innerHTML = html;
+  }
+
   function leaveSplashTo(link) {
     history.replaceState({ page: "intro", depth: 0 }, "", location.pathname + location.search);
     if (!link) { show({ page: "intro" }, false, "turn"); return; }
@@ -1095,6 +1121,7 @@
 
   function init() {
     splitTitle();
+    makeSparks();
     ORDER.forEach((name) => { if (name !== "splash") pages[name].inert = true; });
     renderIntro();
     renderLanguages();
@@ -1124,6 +1151,9 @@
       pages.splash.style.setProperty("--splash-left", remaining + "ms");
       pages.splash.classList.add("is-ready");
       pages.splash.addEventListener("click", leaveSplash);
+      document.addEventListener("keydown", (e) => {
+        if (state.page === "splash" && (e.key === "Enter" || e.key === " ")) leaveSplash();
+      });
       setTimeout(leaveSplash, remaining);
     });
     if (document.fonts) {
