@@ -423,12 +423,17 @@
             <span class="lang-card__native" lang="${esc(l.code)}">${esc(l.native)}</span>
             <span class="lang-card__en">${esc(l.name)}</span>
           </span>
-          <span class="lang-card__count">${n} ${n === 1 ? "hymn" : "hymns"}</span>
+          <span class="lang-card__count">${icon("book")}${n} ${n === 1 ? "hymn" : "hymns"}</span>
           <span class="lang-card__badge">Recent</span>
-          <svg class="ic lang-card__arrow" aria-hidden="true"><use href="#i-chevron"/></svg>
+          <span class="lang-card__go" aria-hidden="true">${icon("chevron")}</span>
         </button>`;
     }).join("");
     markRecent();
+
+    // "6 languages · 33 hymns" on the header card
+    const total = BOOK.languages.reduce((sum, l) => sum + (BOOK.songs[l.code] || []).length, 0);
+    $("#heroStats").innerHTML =
+      `<span><b>${BOOK.languages.length}</b> languages</span><span><b>${total}</b> hymns</span>`;
   }
 
   function markRecent() {
