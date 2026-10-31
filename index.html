@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Noto+Sans+Oriya:wght@400;600;800&family=Noto+Sans+Telugu:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=8">
+  <link rel="stylesheet" href="styles.css?v=9">
 </head>
 <body>
 
@@ -129,7 +129,26 @@
               <button class="icon-btn aa-btn" type="button" data-sheet aria-label="Reading options">Aa</button>
             </div>
           </div>
+        </header>
 
+        <!-- Language header card -->
+        <div class="container container--hero">
+          <section class="book-hero" aria-hidden="true">
+            <span class="book-hero__glyph" id="bookGlyph"></span>
+            <div class="book-hero__text">
+              <p class="book-hero__label">Hymn book</p>
+              <p class="book-hero__native" id="bookNative"></p>
+              <p class="book-hero__en" id="bookEnglish"></p>
+            </div>
+            <div class="book-hero__stats">
+              <span><b id="bookCount">0</b> hymns</span>
+              <span><b id="bookFavs">0</b> favorites</span>
+            </div>
+          </section>
+        </div>
+
+        <!-- Search stays pinned under the top bar while scrolling -->
+        <div class="search-wrap" id="searchWrap">
           <div class="search" role="search">
             <svg class="ic search__icon" aria-hidden="true"><use href="#i-search"/></svg>
             <input id="search" type="search" placeholder="Song number or name"
@@ -151,7 +170,7 @@
               <svg class="ic" aria-hidden="true"><use href="#i-clock"/></svg>Recent
             </button>
           </div>
-        </header>
+        </div>
 
         <div class="container container--list">
           <p class="result-count" id="resultCount" aria-live="polite"></p>
@@ -243,8 +262,8 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="songs.js?v=8"></script>
-  <script src="pronounce.js?v=8"></script>
-  <script src="app.js?v=8"></script>
+  <script src="songs.js?v=9"></script>
+  <script src="pronounce.js?v=9"></script>
+  <script src="app.js?v=9"></script>
 </body>
 </html>

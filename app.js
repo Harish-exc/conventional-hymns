@@ -463,6 +463,13 @@
     el.songsTitle.lang = lang.code;
     el.list.lang = lang.code;
     el.songsMeta.textContent = `${lang.name} · ${state.songs.length} hymns`;
+    // Header card
+    $("#bookGlyph").textContent = lang.glyph;
+    $("#bookGlyph").lang = lang.code;
+    $("#bookNative").textContent = lang.native;
+    $("#bookNative").lang = lang.code;
+    $("#bookEnglish").textContent = lang.name;
+    $("#bookCount").textContent = state.songs.length;
     el.search.value = "";
     store.set("lang", lang.code);
     markRecent();
@@ -501,6 +508,7 @@
     el.favBtn.setAttribute("aria-pressed", String(on));
     el.favBtn.setAttribute("aria-label", on ? "Remove from favorites" : "Add to favorites");
     el.favCount.textContent = favList().length;
+    $("#bookFavs").textContent = favList().length;
   }
 
   function setFilter(f) {
@@ -608,8 +616,16 @@
     searchTimer = setTimeout(() => {
       pages.songs.style.setProperty("--enter-delay", "0ms");
       renderList();
-      scroller("songs").scrollTop = 0;
+      pinSearch();
     }, 70);
+  }
+
+  // Scroll just far enough that the search bar sits under the top bar,
+  // so results start right below it (the header card moves out of the way).
+  function pinSearch() {
+    const sc = scroller("songs");
+    const point = $("#searchWrap").offsetTop - sc.querySelector(".topbar").offsetHeight;
+    sc.scrollTop = Math.max(0, point);
   }
 
   function applyKeypad() {
@@ -892,6 +908,7 @@
 
     // Search & filters
     el.search.addEventListener("input", onSearchInput);
+    el.search.addEventListener("focus", () => setTimeout(pinSearch, 60));
     el.search.addEventListener("keydown", (e) => {
       if (e.key === "Enter" && lastRows.length) {
         e.preventDefault();
@@ -958,6 +975,14 @@
       if (!bar) return;
       sc.addEventListener("scroll", () => bar.classList.toggle("is-scrolled", sc.scrollTop > 4), { passive: true });
     });
+    // The song list's search bar gets its shadow once it pins under the top bar.
+    const songsScroll = scroller("songs");
+    const searchWrap = $("#searchWrap");
+    const songsBar = songsScroll.querySelector(".topbar");
+    songsScroll.addEventListener("scroll", () => {
+      const stuck = searchWrap.getBoundingClientRect().top <= songsBar.getBoundingClientRect().bottom + 1;
+      searchWrap.classList.toggle("is-stuck", stuck && songsScroll.scrollTop > 0);
+    }, { passive: true });
 
     // Keyboard (laptop)
     document.addEventListener("keydown", (e) => {
