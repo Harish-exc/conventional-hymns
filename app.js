@@ -6,7 +6,7 @@
 
   const BOOK = window.HYMN_BOOK;
 
-  const SPLASH_MS = 2000;   // how long the blue title page stays
+  const SPLASH_MS = 5000;   // how long the blue title page stays
   const TURN_MS   = 1100;   // paper turn between pages
   const FLIP_MS   = 800;    // paper turn between hymns (prev / next)
   const PUSH_MS   = 420;    // list -> hymn slide
@@ -93,8 +93,26 @@
     index: [],
     current: -1,
     scale: store.get("scale", 1),
-    numeric: store.get("numeric", false)
+    numeric: store.get("numeric", false),
+    pron: store.get("pron", "off")
   };
+
+  /* ---------- pronunciation ---------- */
+  const PRON_TARGETS = [
+    { id: "roman", label: "English letters", lang: "en" },
+    { id: "te",    label: "తెలుగు",          lang: "te" },
+    { id: "or",    label: "ଓଡ଼ିଆ",           lang: "or" },
+    { id: "dev",   label: "हिन्दी · मराठी",   lang: "hi" },
+    { id: "bn",    label: "বাংলা",           lang: "bn" }
+  ];
+
+  // The chosen pronunciation for the open language, or null when showing the original only.
+  function pronTarget() {
+    const own = Pronounce.scriptOfLang(state.lang);
+    if (!own || state.pron === "off" || state.pron === own) return null;
+    return PRON_TARGETS.find((p) => p.id === state.pron) || null;
+  }
+  const pron = (text, target) => Pronounce.transliterate(text, state.lang, target.id);
 
   /* =========================================================
      Page transitions
@@ -225,9 +243,17 @@
     state.lang = lang.code;
     state.langObj = lang;
     state.songs = (BOOK.songs[lang.code] || []).slice().sort((a, b) => a.number - b.number);
+    const indic = !!Pronounce.scriptOfLang(lang.code);
     state.index = state.songs.map((s) => {
       const lines = [...(s.verses || []), s.chorus || ""].join("\n").split("\n").map((t) => t.trim()).filter(Boolean);
-      return { num: String(s.number), title: norm(s.title), lines, linesN: lines.map(norm) };
+      const ix = { num: String(s.number), title: norm(s.title), lines, linesN: lines.map(norm) };
+      if (indic) {   // English-letter copies so "yesu" finds యేసు
+        ix.rTitle = Pronounce.transliterate(s.title, lang.code, "roman");
+        ix.rLines = lines.map((l) => Pronounce.transliterate(l, lang.code, "roman"));
+        ix.rTitleKey = Pronounce.looseKey(ix.rTitle);
+        ix.rLineKeys = ix.rLines.map(Pronounce.looseKey);
+      }
+      return ix;
     });
 
     el.songsTitle.textContent = lang.native;
@@ -250,10 +276,12 @@
   function search(q) {
     if (!q) return state.songs.map((_, i) => ({ i, line: null }));
     const isNum = /^\d+$/.test(q);
+    const qk = /^[a-z][a-z\s'.-]*$/.test(q) ? Pronounce.looseKey(q) : "";
     const rows = [];
     state.index.forEach((ix, i) => {
       let score = -1;
       let line = null;
+      let roman = false;
       if (isNum && ix.num === q) score = 100;
       else if (isNum && ix.num.startsWith(q)) score = 90;
       const t = ix.title.indexOf(q);
@@ -263,7 +291,14 @@
         const li = ix.linesN.findIndex((l) => l.includes(q));
         if (li >= 0) { score = 30; line = ix.lines[li]; }
       }
-      if (score >= 0) rows.push({ i, score, line });
+      if (score < 0 && qk && ix.rTitle) {
+        if (ix.rTitleKey.includes(qk)) { score = 40; line = ix.rTitle; roman = true; }
+        else {
+          const li = ix.rLineKeys.findIndex((l) => l.includes(qk));
+          if (li >= 0) { score = 20; line = ix.rLines[li]; roman = true; }
+        }
+      }
+      if (score >= 0) rows.push({ i, score, line, roman });
     });
     return rows.sort((a, b) => b.score - a.score || state.songs[a.i].number - state.songs[b.i].number);
   }
@@ -275,15 +310,22 @@
     lastRows = rows;
 
     el.clear.hidden = !raw;
+    const t = pronTarget();
     el.list.innerHTML = rows.map((r, k) => {
       const s = state.songs[r.i];
+      // Preview: the matched line, else the title's pronunciation, else the first line.
+      let preview = r.line;
+      let plang = r.roman ? "en" : "";
+      let isPron = r.roman;
+      if (!preview && t) { preview = pron(s.title, t); plang = t.lang; isPron = true; }
+      if (!preview) preview = firstLine(s);
       return `
         <li>
           <button class="song-item" type="button" data-i="${r.i}" style="--i:${Math.min(k, 12)}">
             <span class="song-item__num">${hl(s.number, q)}</span>
             <span class="song-item__text">
               <span class="song-item__title">${hl(s.title, q)}</span>
-              <span class="song-item__preview">${hl(r.line || firstLine(s), q)}</span>
+              <span class="song-item__preview${isPron ? " is-pron" : ""}"${plang ? ` lang="${plang}"` : ""}>${hl(preview, q)}</span>
             </span>
             ${icon("chevron")}
           </button>
@@ -316,40 +358,68 @@
   /* =========================================================
      Song view
      ========================================================= */
-  function renderSong(i) {
+  function renderSong(i, keepScroll) {
     const s = state.songs[i];
     if (!s) return;
     const lang = state.langObj;
+    const own = Pronounce.scriptOfLang(lang.code);
+    const t = pronTarget();
     state.current = i;
 
     el.songNo.textContent = `Hymn ${s.number}`;
     el.songLang.textContent = `${lang.native} · ${lang.name}`;
 
+    // Each line, with its pronunciation underneath when one is chosen.
+    const text = (v) => !t ? esc(v) : v.split("\n").map((l) =>
+      `<span class="ln"><span class="ln__o">${esc(l)}</span><span class="ln__p" lang="${t.lang}">${esc(pron(l, t))}</span></span>`
+    ).join("");
+
     let body = "";
     (s.verses || []).forEach((v, k) => {
-      body += `<div class="stanza"><span class="stanza__n">${k + 1}</span><p class="stanza__text">${esc(v)}</p></div>`;
-      if (k === 0 && s.chorus) body += chorusHtml(s.chorus, lang);
+      body += `<div class="stanza"><span class="stanza__n">${k + 1}</span><p class="stanza__text">${text(v)}</p></div>`;
+      if (k === 0 && s.chorus) body += chorusHtml(text(s.chorus), lang);
     });
-    if (!(s.verses || []).length && s.chorus) body += chorusHtml(s.chorus, lang);
+    if (!(s.verses || []).length && s.chorus) body += chorusHtml(text(s.chorus), lang);
+
+    const pronBar = !own ? "" : `
+      <div class="pron" role="group" aria-label="Pronunciation">
+        <span class="pron__label" lang="en">Pronunciation</span>
+        <div class="pron__chips">
+          ${[{ id: "off", label: "Original", lang: "en" }, ...PRON_TARGETS.filter((p) => p.id !== own)].map((p) => {
+            const on = (t ? t.id : "off") === p.id;
+            return `<button class="chip${on ? " is-on" : ""}" type="button" data-pron="${p.id}" lang="${p.lang}" aria-pressed="${on}">${esc(p.label)}</button>`;
+          }).join("")}
+        </div>
+      </div>`;
 
     el.lyrics.lang = lang.code;
     el.lyrics.innerHTML = `
       <header class="lyrics__head">
         <p class="hymn-no" lang="en"><span>Hymn</span><strong>${esc(s.number)}</strong></p>
         <h1 class="lyrics__title" tabindex="-1" data-focus>${esc(s.title)}</h1>
+        ${t ? `<p class="lyrics__pron" lang="${t.lang}">${esc(pron(s.title, t))}</p>` : ""}
         ${s.author ? `<p class="lyrics__author">${esc(s.author)}</p>` : ""}
         <div class="ornament" aria-hidden="true"><span></span><i>✦</i><span></span></div>
+        ${pronBar}
       </header>
       ${body}`;
 
     el.prev.disabled = i <= 0;
     el.next.disabled = i >= state.songs.length - 1;
     el.pos.textContent = `${i + 1} / ${state.songs.length}`;
-    scroller("song").scrollTop = 0;
+    if (!keepScroll) scroller("song").scrollTop = 0;
   }
 
-  const chorusHtml = (text, lang) =>
-    `<div class="chorus"><span class="chorus__label">${esc(lang.chorus)}</span><p class="chorus__text">${esc(text)}</p></div>`;
+  const chorusHtml = (html, lang) =>
+    `<div class="chorus"><span class="chorus__label">${esc(lang.chorus)}</span><p class="chorus__text">${html}</p></div>`;
+
+  function setPron(id) {
+    state.pron = id;
+    store.set("pron", id);
+    renderSong(state.current, true);
+    pages.songs.style.setProperty("--enter-delay", "0ms");
+    renderList();
+  }
 
   // Prev / next hymn: turn a paper copy of the current page over the new one.
   function changeSong(delta) {
@@ -459,6 +529,10 @@
     });
 
     // Song view
+    el.lyrics.addEventListener("click", (e) => {
+      const chip = e.target.closest("[data-pron]");
+      if (chip) setPron(chip.dataset.pron);
+    });
     el.prev.addEventListener("click", () => changeSong(-1));
     el.next.addEventListener("click", () => changeSong(1));
     el.fontDown.addEventListener("click", () => setScale(-0.1));
@@ -517,16 +591,22 @@
 
     history.replaceState({ page: "splash", depth: 0 }, "");
     // SPLASH_MS counts from page open, including the short wait for fonts.
+    // Tapping the splash once it is shown skips the rest of the wait.
+    let left = false;
+    const leaveSplash = () => {
+      if (left || state.page !== "splash") return;
+      left = true;
+      history.replaceState({ page: "cover", depth: 0 }, "");
+      show({ page: "cover" }, false, "turn");
+    };
     const fonts = document.fonts ? Promise.race([document.fonts.ready, wait(600)]) : Promise.resolve();
-    fonts
-      .then(() => {
-        pages.splash.classList.add("is-ready");
-        return wait(Math.max(0, SPLASH_MS - performance.now()));
-      })
-      .then(() => {
-        history.replaceState({ page: "cover", depth: 0 }, "");
-        show({ page: "cover" }, false, "turn");
-      });
+    fonts.then(() => {
+      const remaining = Math.max(0, SPLASH_MS - performance.now());
+      pages.splash.style.setProperty("--splash-left", remaining + "ms");
+      pages.splash.classList.add("is-ready");
+      pages.splash.addEventListener("click", leaveSplash);
+      setTimeout(leaveSplash, remaining);
+    });
   }
 
   init();

@@ -262,6 +262,31 @@ button:disabled { cursor: default; }
   animation-delay: calc(var(--d) * 45ms + 120ms);
 }
 .splash.is-ready .splash__title { animation: titleGlow 1.6s ease-in-out 1.1s infinite alternate; }
+.splash.is-ready .splash__inner { animation: breathe 6s ease-in-out forwards; }
+@keyframes breathe { from { transform: scale(1); } to { transform: scale(1.05); } }
+
+.splash__progress {
+  position: absolute;
+  left: 50%;
+  bottom: calc(56px + var(--safe-bottom));
+  width: 120px;
+  height: 2px;
+  margin-left: -60px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, .18);
+  overflow: hidden;
+  opacity: 0;
+}
+.splash__progress i {
+  display: block;
+  height: 100%;
+  background: #fff;
+  transform: scaleX(0);
+  transform-origin: left;
+}
+.splash.is-ready .splash__progress { animation: fadeIn .6s ease .4s forwards; }
+.splash.is-ready .splash__progress i { animation: grow var(--splash-left, 5s) linear forwards; }
+
 .splash.is-ready .splash__rule { animation: fadeIn .5s ease .9s forwards; }
 .splash.is-ready .splash__rule span { animation: grow .8s var(--ease-out) .95s forwards; }
 
@@ -704,6 +729,60 @@ mark { background: rgba(233, 199, 102, .5); color: inherit; border-radius: 3px; 
 .ornament span { height: 1px; width: 56px; background: linear-gradient(90deg, transparent, var(--gold-400)); }
 .ornament span:last-child { background: linear-gradient(270deg, transparent, var(--gold-400)); }
 .ornament i { font-style: normal; }
+
+.lyrics__pron {
+  margin: 6px 0 0;
+  font-size: calc(1rem * var(--scale));
+  font-weight: 500;
+  color: var(--blue-700);
+  animation: fadeIn .35s ease both;
+}
+
+/* Pronunciation picker */
+.pron { margin-top: 20px; }
+.pron__label {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.pron__chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.chip {
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+  transition: background .15s, color .15s, border-color .15s, transform .15s;
+}
+.chip:hover { background: var(--bg-soft); }
+.chip:active { transform: scale(.95); }
+.chip.is-on {
+  background: var(--blue-800);
+  border-color: var(--blue-800);
+  color: #fff;
+  box-shadow: 0 6px 14px -8px rgba(10, 36, 112, .6);
+}
+
+/* A lyric line with its pronunciation underneath */
+.ln { display: block; margin-bottom: .55em; }
+.ln:last-child { margin-bottom: 0; }
+.ln__o { display: block; }
+.ln__p {
+  display: block;
+  font-size: .86em;
+  line-height: 1.55;
+  font-weight: 500;
+  color: var(--blue-700);
+  animation: fadeIn .35s ease both;
+}
+.song-item__preview.is-pron { color: var(--blue-700); }
 
 .stanza {
   display: grid;
