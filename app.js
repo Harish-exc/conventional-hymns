@@ -1020,7 +1020,10 @@
       left = true;
       leaveSplashTo(link);
     };
-    const fonts = document.fonts ? Promise.race([document.fonts.ready, wait(600)]) : Promise.resolve();
+    // Wait (briefly) for the fonts and the emblem, so the entrance animation plays complete.
+    const logo = $(".splash__disc img");
+    const ready = [document.fonts ? document.fonts.ready : null, logo && logo.decode ? logo.decode().catch(() => {}) : null];
+    const fonts = Promise.race([Promise.all(ready), wait(900)]);
     fonts.then(() => {
       fitCover();
       const remaining = Math.max(0, SPLASH_MS - performance.now());
