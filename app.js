@@ -1143,25 +1143,6 @@
     });
   }
 
-  // Gold sparkles drifting up the front page, each with its own path and pace.
-  function makeSparks() {
-    const box = $("#splashSparks");
-    let html = "";
-    for (let i = 0; i < 22; i++) {
-      const r = (a, b) => (a + Math.random() * (b - a)).toFixed(2);
-      html += `<i class="spark" style="--x:${r(2, 98)}%;--s:${r(2, 5)}px;--t:${r(6, 11)}s;--d:${r(0, 6)}s;--dx:${r(-40, 40)}px"></i>`;
-    }
-    box.innerHTML = html;
-
-    // Twinkling stars across the blue
-    let stars = "";
-    for (let i = 0; i < 40; i++) {
-      const r = (a, b) => (a + Math.random() * (b - a)).toFixed(2);
-      stars += `<i class="star" style="--x:${r(3, 97)}%;--y:${r(3, 97)}%;--s:${r(1, 2.6)}px;--o:${r(.35, .95)};--t:${r(2.2, 5)}s;--d:${r(0, 4)}s"></i>`;
-    }
-    $("#splashStars").innerHTML = stars;
-  }
-
   function leaveSplashTo(link) {
     history.replaceState({ page: "intro", depth: 0 }, "", location.pathname + location.search);
     if (!link) { show({ page: "intro" }, false, "turn"); return; }
@@ -1177,7 +1158,6 @@
 
   function init() {
     splitTitle();
-    makeSparks();
     ORDER.forEach((name) => { if (name !== "splash") pages[name].inert = true; });
     renderIntro();
     renderLanguages();
@@ -1192,13 +1172,14 @@
     // SPLASH_MS counts from page open, including the short wait for fonts.
     // Tapping the splash once it is shown skips the rest of the wait.
     let left = false;
+    // The page turn lifts the book's cover away.
     const leaveSplash = () => {
       if (left || state.page !== "splash") return;
       left = true;
       leaveSplashTo(link);
     };
     // Wait (briefly) for the fonts and the emblem, so the entrance animation plays complete.
-    const logo = $(".splash__disc img");
+    const logo = $(".cover3d__emblem img");
     const ready = [document.fonts ? document.fonts.ready : null, logo && logo.decode ? logo.decode().catch(() => {}) : null];
     const fonts = Promise.race([Promise.all(ready), wait(900)]);
     fonts.then(() => {

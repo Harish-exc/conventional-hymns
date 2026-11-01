@@ -195,20 +195,104 @@ button:disabled { cursor: default; }
 @keyframes rise   { from { opacity: 0; transform: translate3d(0, 14px, 0); } to { opacity: 1; transform: none; } }
 
 /* =========================================================
-   1 · Splash
+   1 · Splash — the whole screen is the hymn book's front cover
    ========================================================= */
 .splash {
+  overflow: hidden;
+  /* the "table" the book lies on */
+  background: radial-gradient(120% 90% at 50% 40%, #0b1a4a 0%, #050d2b 60%, #02071a 100%);
+  /* when the cover turns, its inside (endpaper) shows */
+  --page-back: linear-gradient(270deg, #e9dfc4 0%, #fbf6e9 70%, #f1e7cf 100%);
+}
+
+.cover3d {
+  position: absolute;
+  inset: calc(10px + var(--safe-top)) 10px calc(10px + var(--safe-bottom)) 8px;
+  opacity: 0;
+  transform: scale(.965);
+}
+.splash.is-ready .cover3d { animation: coverIn 1s var(--ease-out) .05s forwards; }
+@keyframes coverIn { to { opacity: 1; transform: none; } }
+
+/* Page edges peeking out on the right and bottom */
+.cover3d__edge {
+  position: absolute;
+  border-radius: 0 4px 4px 0;
+}
+.cover3d__edge--right {
+  top: 8px;
+  bottom: 6px;
+  right: 1px;
+  width: 12px;
+  background: repeating-linear-gradient(90deg, #f6eedb 0 2px, #d9cba6 2px 3px);
+  box-shadow: 4px 0 10px rgba(0, 0, 0, .45);
+}
+.cover3d__edge--bottom {
+  left: 14px;
+  right: 6px;
+  bottom: 0;
+  height: 10px;
+  border-radius: 0 0 4px 4px;
+  background: repeating-linear-gradient(0deg, #f6eedb 0 2px, #d9cba6 2px 3px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, .5);
+}
+
+/* The blue leather board */
+.cover3d__board {
+  position: absolute;
+  inset: 0 12px 9px 0;
+  overflow: hidden;
+  display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  border-radius: 6px 14px 14px 6px;
   background:
-    radial-gradient(120% 85% at 50% 42%, #1c49bd 0%, #0e2d88 42%, #061a52 78%, #04123d 100%);
-  --page-back: linear-gradient(90deg, #071c58 0%, #0f2b7d 55%, #081e5c 100%);
+    radial-gradient(rgba(255, 255, 255, .035) 1px, transparent 1.2px) 0 0 / 4px 4px,          /* leather grain */
+    radial-gradient(120% 80% at 55% 30%, #2b58e4 0%, #1739bb 45%, #0c2585 85%, #091d6c 100%);
+  box-shadow:
+    0 30px 60px rgba(0, 0, 0, .65),
+    inset 0 0 0 1px rgba(255, 255, 255, .07),
+    inset -10px 0 18px rgba(0, 0, 0, .3),
+    inset 0 -10px 18px rgba(0, 0, 0, .25);
 }
+
+/* Spine on the left, with a hinge groove and gold bands */
+.cover3d__spine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 30px;
+  background:
+    linear-gradient(90deg, #06144a 0%, #10288f 35%, #1d44c9 55%, #0f2a95 80%, #0a1f72 100%);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, .12), 3px 0 6px rgba(0, 0, 0, .45);
+}
+.cover3d__spine::after {    /* hinge groove */
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -6px;
+  width: 6px;
+  background: linear-gradient(90deg, rgba(0, 0, 0, .35), rgba(255, 255, 255, .1) 70%, rgba(0, 0, 0, 0));
+}
+.cover3d__spine i {
+  position: absolute;
+  left: 5px;
+  right: 5px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #e9c766, transparent);
+}
+.cover3d__spine i:nth-child(1) { top: 7%; }
+.cover3d__spine i:nth-child(2) { top: calc(7% + 7px); opacity: .6; }
+.cover3d__spine i:nth-child(3) { bottom: calc(7% + 7px); opacity: .6; }
+.cover3d__spine i:nth-child(4) { bottom: 7%; }
+
+/* Gold frame with ornamented corners */
 .splash__frame {
   position: absolute;
-  inset: calc(14px + var(--safe-top)) 14px calc(14px + var(--safe-bottom));
-  border: 1px solid rgba(233, 199, 102, .5);
+  inset: 16px 16px 16px 46px;
+  border: 1px solid rgba(233, 199, 102, .6);
   border-radius: 9px;
   opacity: 0;
   transform: scale(1.03);
@@ -217,10 +301,10 @@ button:disabled { cursor: default; }
   content: "";
   position: absolute;
   inset: 6px;
-  border: 1px solid rgba(233, 199, 102, .2);
+  border: 1px solid rgba(233, 199, 102, .25);
   border-radius: 4px;
 }
-.splash__frame::before {    /* ornamented gold corners */
+.splash__frame::before {
   content: "";
   position: absolute;
   inset: -1px;
@@ -231,163 +315,64 @@ button:disabled { cursor: default; }
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3E%3Cg transform='rotate(270 15 15)'%3E%3Cg fill='none' stroke='%23e9c766' stroke-width='1.2'%3E%3Cpath d='M.6 30V9.6a9 9 0 0 1 9-9H30'/%3E%3Cpath d='M5 30V13a8 8 0 0 1 8-8h17' opacity='.55'/%3E%3C/g%3E%3Cpath d='M11 11l3.5-3.5L18 11l-3.5 3.5z' fill='%23e9c766'/%3E%3C/g%3E%3C/svg%3E") bottom left / 30px no-repeat;
 }
 
-/* Golden light rays turning slowly behind the emblem */
-.splash__rays {
-  position: absolute;
-  inset: -160%;
-  border-radius: 50%;
-  background: repeating-conic-gradient(from 0deg, rgba(246, 227, 161, .13) 0deg 3deg, rgba(246, 227, 161, 0) 3deg 12deg);
-  -webkit-mask: radial-gradient(circle, #000 0%, rgba(0, 0, 0, .55) 30%, transparent 62%);
-  mask: radial-gradient(circle, #000 0%, rgba(0, 0, 0, .55) 30%, transparent 62%);
-  opacity: 0;
-  pointer-events: none;
-}
-.splash.is-ready .splash__rays { animation: fadeIn 1.4s ease .6s forwards, spin 90s linear infinite; }
-
-/* Fine white rays turning the other way, for depth */
-.splash__rays--fine {
-  inset: -120%;
-  background: repeating-conic-gradient(from 6deg, rgba(255, 255, 255, .07) 0deg 1deg, rgba(255, 255, 255, 0) 1deg 7deg);
-}
-.splash.is-ready .splash__rays--fine { animation: fadeIn 1.4s ease .9s forwards, spin 150s linear infinite reverse; }
-
-/* A soft golden beam of light from the top */
-.splash__beam {
-  position: absolute;
-  top: -12%;
-  left: 50%;
-  width: min(130vw, 960px);
-  height: 78%;
-  transform: translateX(-50%);
-  background: radial-gradient(ellipse 50% 60% at 50% 0%, rgba(246, 227, 161, .24) 0%, rgba(246, 227, 161, .07) 45%, rgba(246, 227, 161, 0) 72%);
-  opacity: 0;
-  pointer-events: none;
-}
-.splash.is-ready .splash__beam { animation: fadeIn 1.2s ease .2s forwards, beam 4s ease-in-out 1.4s infinite alternate; }
-@keyframes beam { from { opacity: .7; } to { opacity: 1; } }
-
-/* Twinkling stars (created by app.js) */
-.splash__stars { position: absolute; inset: 0; pointer-events: none; }
-.star {
-  position: absolute;
-  left: var(--x);
-  top: var(--y);
-  width: var(--s);
-  height: var(--s);
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 6px rgba(255, 255, 255, .8);
-  opacity: 0;
-}
-.splash.is-ready .star { animation: twinkle var(--t) ease-in-out var(--d) infinite; }
-@keyframes twinkle { 0%, 100% { opacity: 0; transform: scale(.6); } 50% { opacity: var(--o); transform: scale(1); } }
-
-/* Gold sparkles drifting upward (created by app.js) */
-.splash__sparks { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
-.spark {
-  position: absolute;
-  bottom: -12px;
-  left: var(--x);
-  width: var(--s);
-  height: var(--s);
-  border-radius: 50%;
-  background: radial-gradient(circle, #fff7d6 0%, #e9c766 45%, rgba(233, 199, 102, 0) 70%);
-  opacity: 0;
-}
-.splash.is-ready .spark { animation: sparkUp var(--t) linear var(--d) infinite; }
-@keyframes sparkUp {
-  0%   { opacity: 0; transform: translate3d(0, 0, 0); }
-  12%  { opacity: .9; }
-  85%  { opacity: .5; }
-  100% { opacity: 0; transform: translate3d(var(--dx), -105vh, 0); }
-}
-.splash__glow {
-  position: absolute;
-  width: min(95vw, 760px);
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, .16) 0%, rgba(255, 255, 255, .05) 38%, transparent 64%);
-  opacity: 0;
-}
-@keyframes glow { from { transform: scale(.92); opacity: .7; } to { transform: scale(1.06); opacity: 1; } }
-
-.splash__inner { position: relative; text-align: center; padding: 24px; }
-
-/* Emblem — the highlight of the front page */
-.splash__logo {
-  position: relative;
-  width: clamp(110px, min(48vw, 34vh), 250px);
-  aspect-ratio: 1;
-  margin: 0 auto clamp(18px, 4vh, 30px);
-  opacity: 0;
-  transform: scale(.55);
-  filter: blur(8px);
-}
-.splash__halo {           /* soft golden glow behind the emblem */
-  position: absolute;
-  inset: -32%;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(246, 227, 161, .5) 0%, rgba(233, 199, 102, .2) 34%, rgba(233, 199, 102, 0) 64%);
-  opacity: 0;
-}
-.splash__ring {           /* a gold light travelling round the rim */
-  position: absolute;
-  inset: -9px;
-  border-radius: 50%;
-  background: conic-gradient(from 0deg, rgba(246, 227, 161, 0) 0deg, rgba(246, 227, 161, 0) 200deg,
-                             rgba(255, 244, 205, .95) 300deg, rgba(246, 227, 161, 0) 360deg);
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
-  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
-  opacity: 0;
-}
-.splash__disc {
+/* A sheen of light passing over the cover */
+.cover3d__sheen {
   position: absolute;
   inset: 0;
-  display: block;
+  pointer-events: none;
+  background: linear-gradient(115deg, rgba(255, 255, 255, 0) 38%, rgba(255, 255, 255, .16) 48%, rgba(255, 255, 255, 0) 58%);
+  background-size: 260% 100%;
+  background-position: 140% 0;
+}
+.splash.is-ready .cover3d__sheen { animation: coverSheen 4.6s ease-in-out 1.2s infinite; }
+@keyframes coverSheen { 0% { background-position: 140% 0; } 45%, 100% { background-position: -40% 0; } }
+
+/* Everything on the cover */
+.splash__inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-left: 30px;              /* centred on the cover, right of the spine */
+  padding: 24px 20px;
+  text-align: center;
+}
+.cover3d__emblem {
+  width: clamp(96px, min(38vw, 24vh), 210px);
+  aspect-ratio: 1;
   border-radius: 50%;
   overflow: hidden;
-  box-shadow:
-    0 0 0 2px rgba(246, 227, 161, .55),
-    0 0 34px rgba(246, 227, 161, .45),
-    0 22px 50px rgba(0, 0, 0, .45);
+  box-shadow: 0 0 0 2px #e9c766, 0 0 0 6px rgba(233, 199, 102, .18), 0 0 30px rgba(246, 227, 161, .4), 0 12px 26px rgba(0, 0, 0, .45);
+  opacity: 0;
+  transform: scale(.7);
 }
-.splash__disc img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  transform: scale(1.006);  /* hides the image's white corners at the circle's edge */
+.cover3d__emblem img { display: block; width: 100%; height: 100%; transform: scale(1.006); }
+.cover3d__title {           /* ହାଲେଲୂୟା ସଂଗିତ — as on the book */
+  margin: clamp(14px, 3vh, 28px) 0 0;
+  font-family: "Noto Sans Oriya", var(--font-ui);
+  font-weight: 800;
+  font-size: clamp(2rem, min(11.5vw, 7.5vh), 4.6rem);
+  line-height: 1.25;
+  color: #fff;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, .3), 0 0 22px rgba(255, 255, 255, .22);
+  opacity: 0;
+  transform: translateY(14px);
 }
-.splash__shine {          /* one sweep of light across the emblem */
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(115deg, rgba(255, 255, 255, 0) 38%, rgba(255, 255, 255, .55) 50%, rgba(255, 255, 255, 0) 62%);
-  background-size: 260% 100%;
-  background-position: 130% 0;
-  mix-blend-mode: screen;
-}
+.splash.is-ready .cover3d__emblem { animation: emblemIn .9s var(--ease-out) .35s forwards; }
+.splash.is-ready .cover3d__title  { animation: titleUp .8s var(--ease-out) .7s forwards; }
+@keyframes emblemIn { to { opacity: 1; transform: none; } }
+@keyframes titleUp  { to { opacity: 1; transform: none; } }
 
-.splash.is-ready .splash__logo  { animation: logoIn 1.1s var(--ease-out) .1s forwards; }
-.splash.is-ready .splash__halo  { animation: fadeIn .8s ease .5s forwards, haloPulse 2.6s ease-in-out 1.3s infinite alternate; }
-.splash.is-ready .splash__ring  { animation: fadeIn .6s ease .9s forwards, spin 3.2s linear .9s infinite; }
-.splash.is-ready .splash__shine { animation: shine 1.3s ease-in-out 1s forwards; }
-
-@keyframes logoIn {
-  60%  { opacity: 1; transform: scale(1.06); filter: blur(0); }
-  100% { opacity: 1; transform: none; filter: none; }
-}
-@keyframes haloPulse { from { transform: scale(.92); opacity: .75; } to { transform: scale(1.08); opacity: 1; } }
-@keyframes spin      { to { transform: rotate(360deg); } }
-@keyframes shine     { from { background-position: 130% 0; } to { background-position: -30% 0; } }
-
-.splash__title {
+.splash__title {            /* CONVENTIONAL HYMNS */
   margin: 0;
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: clamp(2.1rem, min(10.4vw, 11vh), 5.6rem);
-  line-height: 1.08;
-  letter-spacing: .035em;
+  font-size: clamp(1.45rem, min(7.4vw, 5vh), 3.2rem);
+  line-height: 1.12;
+  letter-spacing: .05em;
   color: #fff;
-  text-shadow: 0 2px 0 rgba(0, 0, 0, .25), 0 10px 30px rgba(0, 0, 0, .25);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, .25), 0 8px 24px rgba(0, 0, 0, .25);
   perspective: 600px;
 }
 .splash__title span { display: block; white-space: nowrap; }
@@ -400,20 +385,20 @@ button:disabled { cursor: default; }
 
 .splash__rule {
   display: flex; align-items: center; justify-content: center; gap: 12px;
-  margin-top: 22px;
+  margin: clamp(12px, 2.4vh, 22px) 0;
   color: var(--gold-300);
   opacity: 0;
 }
 .splash__rule i { font-style: normal; font-size: 14px; }
 .splash__rule span {
+  position: relative;
   height: 1px;
-  width: clamp(54px, 20vw, 130px);
+  width: clamp(60px, 20vw, 140px);
   background: linear-gradient(90deg, transparent, var(--gold-300));
   transform: scaleX(0);
   transform-origin: right;
 }
 .splash__rule span:last-child { background: linear-gradient(270deg, transparent, var(--gold-300)); transform-origin: left; }
-.splash__rule span { position: relative; width: clamp(70px, 24vw, 150px); }
 .splash__rule span::after {
   content: "";
   position: absolute;
@@ -426,20 +411,19 @@ button:disabled { cursor: default; }
 .splash__rule span:first-child::after { left: -3px; }
 .splash__rule span:last-child::after { right: -3px; }
 
-.splash.is-ready .splash__frame { animation: frameIn 1s var(--ease-out) .1s forwards; }
-.splash.is-ready .splash__glow  { animation: fadeIn .8s ease forwards, glow 3.2s ease-in-out .8s infinite alternate; }
+.splash.is-ready .splash__frame { animation: frameIn 1s var(--ease-out) .2s forwards; }
 .splash.is-ready .splash__title .ch {
   animation: letterIn .7s var(--ease-out) forwards;
-  animation-delay: calc(var(--d) * 45ms + 700ms);   /* after the emblem arrives */
+  animation-delay: calc(var(--d) * 45ms + 1.2s);
 }
-.splash.is-ready .splash__title { animation: titleGlow 1.6s ease-in-out 1.8s infinite alternate; }
-.splash.is-ready .splash__inner { animation: breathe 6s ease-in-out forwards; }
-@keyframes breathe { from { transform: scale(1); } to { transform: scale(1.05); } }
+.splash.is-ready .splash__title { animation: titleGlow 1.6s ease-in-out 2.3s infinite alternate; }
+.splash.is-ready .splash__rule { animation: fadeIn .5s ease 1s forwards; }
+.splash.is-ready .splash__rule span { animation: grow .8s var(--ease-out) 1.05s forwards; }
 
 .splash__progress {
   position: absolute;
-  left: 50%;
-  bottom: calc(56px + var(--safe-bottom));
+  left: calc(50% + 15px);
+  bottom: 34px;
   width: 120px;
   height: 2px;
   margin-left: -60px;
@@ -451,21 +435,18 @@ button:disabled { cursor: default; }
 .splash__progress i {
   display: block;
   height: 100%;
-  background: #fff;
+  background: #e9c766;
   transform: scaleX(0);
   transform-origin: left;
 }
 .splash.is-ready .splash__progress { animation: fadeIn .6s ease .4s forwards; }
 .splash.is-ready .splash__progress i { animation: grow var(--splash-left, 5s) linear forwards; }
 
-.splash.is-ready .splash__rule { animation: fadeIn .5s ease 1.5s forwards; }
-.splash.is-ready .splash__rule span { animation: grow .8s var(--ease-out) 1.55s forwards; }
-
 @keyframes letterIn { to { opacity: 1; transform: none; filter: blur(0); } }
 @keyframes frameIn  { to { opacity: 1; transform: none; } }
 @keyframes titleGlow {
-  from { text-shadow: 0 2px 0 rgba(0, 0, 0, .25), 0 10px 30px rgba(0, 0, 0, .25); }
-  to   { text-shadow: 0 2px 0 rgba(0, 0, 0, .25), 0 0 22px rgba(255, 255, 255, .45), 0 0 46px rgba(246, 227, 161, .55); }
+  from { text-shadow: 0 2px 0 rgba(0, 0, 0, .25), 0 8px 24px rgba(0, 0, 0, .25); }
+  to   { text-shadow: 0 2px 0 rgba(0, 0, 0, .25), 0 0 20px rgba(255, 255, 255, .4), 0 0 40px rgba(246, 227, 161, .5); }
 }
 @keyframes grow { to { transform: scaleX(1); } }
 
@@ -1752,8 +1733,6 @@ mark { background: rgba(233, 199, 102, .5); color: inherit; border-radius: 3px; 
   .container { padding-left: 32px; padding-right: 32px; }
   .topbar { padding-left: 20px; padding-right: 20px; }
 
-  .splash__title span { display: inline; }
-  .splash__frame { inset: calc(24px + var(--safe-top)) 24px calc(24px + var(--safe-bottom)); }
 
   .cover .page__scroll { padding: 28px 20px; }
   .paper {
