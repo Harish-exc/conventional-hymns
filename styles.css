@@ -202,12 +202,12 @@ button:disabled { cursor: default; }
   /* --c is the circle's size; everything inside is measured in --u (1% of it) */
   --c: min(94vw, 82vh, 660px);
   --u: calc(var(--c) / 100);
-  background: radial-gradient(120% 90% at 50% 42%, #0d2060 0%, #061344 55%, #020920 100%);
+  background: #fff;
   /* when the page turns, the book's endpaper shows on the back */
   --page-back: linear-gradient(270deg, #e9dfc4 0%, #fbf6e9 70%, #f1e7cf 100%);
 }
 
-/* The circle — a single white ring */
+/* The circle — white on white, lifted by a soft shadow */
 .halo {
   position: absolute;
   inset: 0;
@@ -215,15 +215,10 @@ button:disabled { cursor: default; }
   width: var(--c);
   height: var(--c);
   border-radius: 50%;
-  background:
-    radial-gradient(circle at 50% 36%, rgba(120, 160, 255, .28) 0%, rgba(120, 160, 255, 0) 55%),
-    radial-gradient(circle at 50% 50%, #163aa8 0%, #0f2b88 55%, #0a1d63 82%, #071548 100%);
-  border: max(2px, calc(var(--u) * .5)) solid #fff;
+  background: #fff;
   box-shadow:
-    0 0 calc(var(--u) * 4) rgba(255, 255, 255, .25),
-    0 0 calc(var(--u) * 12) rgba(80, 130, 255, .35),
-    0 calc(var(--u) * 6) calc(var(--u) * 14) rgba(0, 0, 0, .6),
-    inset 0 0 calc(var(--u) * 8) rgba(0, 0, 0, .45);
+    0 calc(var(--u) * 1.5) calc(var(--u) * 6) rgba(10, 30, 90, .14),
+    0 calc(var(--u) * .3) calc(var(--u) * 1.2) rgba(10, 30, 90, .08);
   opacity: 0;
   transform: scale(.9);
 }
@@ -279,7 +274,7 @@ button:disabled { cursor: default; }
     radial-gradient(rgba(255, 255, 255, .04) 1px, transparent 1.2px) 0 0 / 4px 4px,          /* leather grain */
     radial-gradient(120% 80% at 55% 30%, #2b58e4 0%, #1739bb 45%, #0c2585 85%, #091d6c 100%);
   box-shadow:
-    0 calc(var(--u) * 2.5) calc(var(--u) * 5) rgba(0, 0, 0, .6),
+    0 calc(var(--u) * 2.5) calc(var(--u) * 5) rgba(10, 25, 80, .35),
     inset 0 0 0 1px rgba(255, 255, 255, .08),
     inset calc(var(--u) * -1.4) 0 calc(var(--u) * 2.4) rgba(0, 0, 0, .3),
     inset 0 calc(var(--u) * -1.4) calc(var(--u) * 2.4) rgba(0, 0, 0, .25);
