@@ -202,12 +202,12 @@ button:disabled { cursor: default; }
   /* --c is the circle's size; everything inside is measured in --u (1% of it) */
   --c: min(94vw, 82vh, 660px);
   --u: calc(var(--c) / 100);
-  background: #fff;
+  background: radial-gradient(120% 90% at 50% 42%, #1a3fb0 0%, #0d2a84 50%, #061a52 100%);
   /* when the page turns, the book's endpaper shows on the back */
   --page-back: linear-gradient(270deg, #e9dfc4 0%, #fbf6e9 70%, #f1e7cf 100%);
 }
 
-/* The circle — white on white, lifted by a soft shadow */
+/* The circle — white, on the blue page */
 .halo {
   position: absolute;
   inset: 0;
@@ -217,8 +217,8 @@ button:disabled { cursor: default; }
   border-radius: 50%;
   background: #fff;
   box-shadow:
-    0 calc(var(--u) * 1.5) calc(var(--u) * 6) rgba(10, 30, 90, .14),
-    0 calc(var(--u) * .3) calc(var(--u) * 1.2) rgba(10, 30, 90, .08);
+    0 0 calc(var(--u) * 8) rgba(255, 255, 255, .22),
+    0 calc(var(--u) * 3) calc(var(--u) * 10) rgba(0, 0, 0, .35);
   opacity: 0;
   transform: scale(.9);
 }
