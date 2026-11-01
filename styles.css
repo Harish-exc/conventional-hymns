@@ -382,7 +382,7 @@ button:disabled { cursor: default; }
   transform: scale(.7);
 }
 .cover3d__emblem img { display: block; width: 100%; height: 100%; transform: scale(1.006); }
-.cover3d__title {           /* ହାଲେଲୂୟା ସଂଗିତ — as on the book */
+.cover3d__title {           /* ହାଲ୍ଲିଲୂୟା ସଙ୍ଗୀତ — as on the book */
   margin: calc(var(--u) * 3.4) 0 0;
   font-family: "Noto Sans Oriya", var(--font-ui);
   font-weight: 800;
