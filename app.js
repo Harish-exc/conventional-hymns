@@ -4,16 +4,16 @@
 (() => {
   "use strict";
 
-  // ?preview opens the admin panel's unpublished changes (kept in this browser only).
-  const BOOK = (() => {
-    if (/[?&]preview\b/.test(location.search)) {
-      try {
-        const draft = JSON.parse(localStorage.getItem("ch-admin:draft"));
-        if (draft && Array.isArray(draft.languages) && draft.songs) return draft;
-      } catch { /* no draft */ }
-    }
-    return window.HYMN_BOOK;
+  // Changes made in the admin panel on this device show here straight away (for checking),
+  // until they are published or undone. Nobody else sees them.
+  const DRAFT = (() => {
+    try {
+      const draft = JSON.parse(localStorage.getItem("ch-admin:draft"));
+      if (draft && Array.isArray(draft.languages) && draft.languages.length && draft.songs) return draft;
+    } catch { /* no draft */ }
+    return null;
   })();
+  const BOOK = DRAFT || window.HYMN_BOOK;
   const SETTINGS = BOOK.settings || {};
 
   const SPLASH_MS = Math.round(Math.min(15, Math.max(1, Number(SETTINGS.splashSeconds) || 5)) * 1000);   // front page
@@ -167,6 +167,9 @@
     const t = pronTarget(lang);
     return t ? pron(text, t, lang) : String(text);
   };
+  // Songs added in the admin panel keep the words in one text ("lyrics");
+  // older songs have stanzas and a chorus.
+  const partsOf = (s) => String(s.lyrics || "").split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
   const chorusLabel = (t) => (BOOK.languages.find((l) => l.code === (t ? t.lang : state.lang)) || state.langObj).chorus;
 
   /* =========================================================
@@ -570,7 +573,7 @@
     state.songs = (BOOK.songs[lang.code] || []).slice().sort((a, b) => a.number - b.number);
     const indic = !!Pronounce.scriptOfLang(lang.code) && lang.code !== "en";
     state.index = state.songs.map((s) => {
-      const lines = [...(s.verses || []), s.chorus || ""].join("\n").split("\n").map((t) => t.trim()).filter(Boolean);
+      const lines = [...(s.verses || []), s.chorus || "", s.lyrics || ""].join("\n").split("\n").map((t) => t.trim()).filter(Boolean);
       const ix = { num: String(s.number), title: norm(s.title), lines, linesN: lines.map(norm) };
       if (indic) {   // English-letter copies so "yesu" finds యేసు
         ix.rTitle = Pronounce.transliterate(s.title, lang.code, "roman");
@@ -648,7 +651,7 @@
   /* =========================================================
      Song list + search
      ========================================================= */
-  const firstLine = (s) => ((s.verses && s.verses[0]) || s.chorus || "").split("\n")[0];
+  const firstLine = (s) => ((s.lyrics && s.lyrics.trim()) || (s.verses && s.verses[0]) || s.chorus || "").split("\n")[0];
   let lastRows = [];
 
   function search(q) {
@@ -777,11 +780,12 @@
     const text = (v) => esc(t ? pron(v, t) : v);
 
     let body = "";
-    (s.verses || []).forEach((v, k) => {
+    if (s.lyrics) body = partsOf(s).map((p) => `<div class="stanza stanza--plain"><p class="stanza__text">${text(p)}</p></div>`).join("");
+    (s.lyrics ? [] : s.verses || []).forEach((v, k) => {
       body += `<div class="stanza"><span class="stanza__n">${k + 1}</span><p class="stanza__text">${text(v)}</p></div>`;
       if (k === 0 && s.chorus) body += chorusHtml(text(s.chorus), chorusLabel(t));
     });
-    if (!(s.verses || []).length && s.chorus) body += chorusHtml(text(s.chorus), chorusLabel(t));
+    if (!s.lyrics && !(s.verses || []).length && s.chorus) body += chorusHtml(text(s.chorus), chorusLabel(t));
 
     // Reading choices shown right on the hymn — one tap, no menu.
     const readPill = !own ? "" : `
@@ -1340,6 +1344,8 @@
       document.fonts.addEventListener("loadingdone", fitCover);
     }
     registerWorker();
+
+    if (DRAFT) setTimeout(() => toast("Showing your admin test changes"), 600);
 
     const saved = savedRoute();
     if (saved) { openAt(saved); return; }

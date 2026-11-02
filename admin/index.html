@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800&family=Inter:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;600&family=Noto+Sans+Devanagari:wght@400;600&family=Noto+Sans+Oriya:wght@400;600;800&family=Noto+Sans+Telugu:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="admin.css?v=1">
+  <link rel="stylesheet" href="admin.css?v=2">
 </head>
 <body>
 
@@ -69,10 +69,10 @@
 
     <div class="changes" id="changes" hidden>
       <span class="changes__dot" aria-hidden="true"></span>
-      <span class="changes__text">You have unpublished changes</span>
-      <a class="btn btn--sm btn--light" href="../?preview=1" target="_blank" rel="noopener">Preview</a>
-      <button class="btn btn--sm btn--light" type="button" data-act="discard">Discard</button>
-      <button class="btn btn--sm btn--gold" type="button" data-act="tab" data-tab="publish">Publish</button>
+      <span class="changes__text">Saved on this device<small>Open the app here to check it. Others see it after Publish.</small></span>
+      <a class="btn btn--sm btn--gold" href="../" target="_blank" rel="noopener">Open app</a>
+      <button class="btn btn--sm btn--light" type="button" data-act="discard">Undo all</button>
+      <button class="btn btn--sm btn--light" type="button" data-act="tab" data-tab="publish">Publish</button>
     </div>
 
     <main class="view" id="view" tabindex="-1"></main>
@@ -86,6 +86,6 @@
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <noscript><p style="padding:24px">The admin panel needs JavaScript.</p></noscript>
-  <script src="admin.js?v=1"></script>
+  <script src="admin.js?v=2"></script>
 </body>
 </html>

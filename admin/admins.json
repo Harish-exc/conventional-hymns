@@ -4,9 +4,9 @@
     {
       "username": "admin",
       "role": "admin",
-      "salt": "6bd5232477e6c4055822b6886dcb5f0f",
+      "salt": "114e9c72f06fd5e5928e9723a39afb13",
       "iterations": 210000,
-      "hash": "47b72ddc6d2875be20f0f5701dbc2f3ec63b75219f9c1909bdfc9af81b2beb56",
+      "hash": "287fb9a561e3870c42059a2c75c3c24e6a7442121c6c9c1a0e473b6e9e523b6c",
       "created": "2026-11-02"
     }
   ]

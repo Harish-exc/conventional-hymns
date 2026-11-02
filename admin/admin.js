@@ -4,7 +4,8 @@
    The site is static (GitHub Pages), so:
    - sign-in is checked in the browser against admin/admins.json,
      which holds only salted PBKDF2 hashes, never passwords;
-   - edits are kept as a draft in this browser until published;
+   - edits are kept as a draft in this browser, and the app on the same
+     device shows them straight away (for checking) until published;
    - publishing writes songs.js and admin/admins.json to the GitHub
      repository using the admin's own GitHub key (token).
    ========================================================= */
@@ -20,11 +21,10 @@
   const API = `https://api.github.com/repos/${REPO.owner}/${REPO.name}`;
   const FILES = { book: "songs.js", admins: "admin/admins.json" };
   const ITERATIONS = 210000;
-  const MIN_PASSWORD = 10;
+  const MIN_PASSWORD = 6;
   const ROLES = { admin: "Full admin", editor: "Editor" };
   const TABS = [
-    { id: "dashboard", label: "Dashboard",    icon: "home",    roles: ["admin", "editor"] },
-    { id: "hymns",     label: "Hymns",        icon: "music",   roles: ["admin", "editor"] },
+    { id: "hymns",     label: "Songs",        icon: "music",   roles: ["admin", "editor"] },
     { id: "cover",     label: "Title page",   icon: "page",    roles: ["admin", "editor"] },
     { id: "languages", label: "Languages",    icon: "globe",   roles: ["admin"] },
     { id: "settings",  label: "App settings", icon: "sliders", roles: ["admin"] },
@@ -68,7 +68,7 @@
     sha: {},
     live: null, draft: null,
     adminsLive: null, adminsDraft: null,
-    tab: session.get("tab", "dashboard"),
+    tab: session.get("tab", "hymns"),
     hymnLang: session.get("hymnLang", null),
     hymnQuery: "",
     coverLang: session.get("coverLang", null),
@@ -240,7 +240,7 @@
     btn.disabled = true;
     err.hidden = true;
     try {
-      const user = findUser(state.adminsLive, form.username.value);
+      const user = findUser(state.adminsLive, form.username.value) || findUser(state.adminsDraft, form.username.value);
       const ok = user ? await checkPassword(user, form.password.value) : (await hashPassword(form.password.value, "00".repeat(16), ITERATIONS), false);
       if (!ok) {
         const fails = session.get("fails", 0) + 1;
@@ -268,7 +268,7 @@
     $("#login").hidden = true;
     $("#app").hidden = false;
     $("#userChip").textContent = `${state.user.username} · ${ROLES[state.user.role]}`;
-    if (!can(state.tab)) state.tab = "dashboard";
+    if (!can(state.tab)) state.tab = "hymns";
     renderNav();
     render();
     saveDraft();
@@ -354,42 +354,12 @@
         <span lang="${esc(l.code)}">${esc(l.native)}</span> <small>${esc(l.name)}</small>
       </button>`).join("")}</div>`;
   }
-  const firstLine = (s) => ((s.verses && s.verses[0]) || s.chorus || "").split("\n")[0];
+  // A song's words as one text: parts separated by an empty line.
+  // Older songs keep stanzas and chorus apart; join them the way the app shows them.
+  const lyricsOf = (s) => s.lyrics != null ? s.lyrics
+    : [(s.verses || [])[0], s.chorus, ...(s.verses || []).slice(1)].filter((p) => p && p.trim()).join("\n\n");
+  const firstLine = (s) => lyricsOf(s).trim().split("\n")[0] || "";
   const songsOf = (code) => (D().songs[code] || []).slice().sort((a, b) => a.number - b.number);
-
-  /* =========================================================
-     Dashboard
-     ========================================================= */
-  VIEWS.dashboard = () => {
-    const b = D();
-    const total = b.languages.reduce((n, l) => n + (b.songs[l.code] || []).length, 0);
-    const covers = b.languages.filter((l) => b.covers[l.code]).length;
-    const rows = b.languages.map((l) => `
-      <div class="row">
-        <span class="num" lang="${esc(l.code)}">${esc(l.glyph || l.code)}</span>
-        <div class="row__main"><b lang="${esc(l.code)}">${esc(l.native)}</b><span>${esc(l.name)} · ${plural((b.songs[l.code] || []).length, "hymn")}${b.covers[l.code] ? " · title page" : ""}</span></div>
-        ${can("hymns") ? `<button class="btn btn--ghost btn--sm" type="button" data-act="goto-hymns" data-code="${esc(l.code)}">Hymns</button>` : ""}
-      </div>`).join("");
-    return `
-      <div class="view-head"><div><h1>Welcome, ${esc(state.user.username)}</h1><p>Everything in the Convention Hymns app can be changed here.</p></div></div>
-      <div class="stats">
-        <div class="card stat"><b>${total}</b><span>Hymns</span></div>
-        <div class="card stat"><b>${b.languages.length}</b><span>Languages</span></div>
-        <div class="card stat"><b>${covers}</b><span>Title pages</span></div>
-        <div class="card stat"><b>${state.adminsDraft.users.length}</b><span>Admins</span></div>
-      </div>
-      <div class="card card--pad">
-        <h2>Publishing</h2>
-        ${state.token
-          ? `<p>Connected to GitHub — changes go live when you press Publish.</p>`
-          : `<p>Not connected to GitHub yet. You can edit now; to put changes on the website, connect once on the Publish page.</p>`}
-        <div class="modal__acts" style="margin-top:12px">
-          ${can("hymns") ? `<button class="btn btn--primary btn--sm" type="button" data-act="hymn-new-from-dash">Add a hymn</button>` : ""}
-          <button class="btn btn--ghost btn--sm" type="button" data-act="tab" data-tab="publish">Go to Publish</button>
-        </div>
-      </div>
-      <div class="card list">${rows}</div>`;
-  };
 
   /* =========================================================
      Hymns
@@ -405,13 +375,14 @@
     const code = ensureLang("hymnLang");
     if (!code) return `<div class="card"><p class="empty">Add a language first (Languages).</p></div>`;
     return `
-      <div class="view-head">
-        <div><h1>Hymns</h1><p>Add, edit or remove hymns. Changes stay here until you publish.</p></div>
-        <button class="btn btn--primary" type="button" data-act="hymn-new">+ Add hymn</button>
-      </div>
+      <button class="add-big" type="button" data-act="hymn-new">
+        <span class="add-big__plus" aria-hidden="true">+</span>
+        <span class="add-big__text"><b>Add a song</b><span>Song title and the words — that's all</span></span>
+      </button>
+      <div class="view-head" style="margin-top:22px"><div><h1>Songs</h1><p>Tap a song to change or delete it.</p></div></div>
       ${langChips(code, "hymn-lang")}
       <div class="toolbar">
-        <input class="input" type="search" id="hymnSearch" placeholder="Search by number, title or words" value="${esc(state.hymnQuery)}" aria-label="Search hymns">
+        <input class="input" type="search" id="hymnSearch" placeholder="Search by number, title or words" value="${esc(state.hymnQuery)}" aria-label="Search songs">
       </div>
       <p class="muted" id="hymnCount" style="margin:0 0 8px;font-size:13px"></p>
       <div class="card list" id="hymnList"></div>`;
@@ -422,19 +393,15 @@
     const list = songsOf(code);
     const q = state.hymnQuery.trim().toLowerCase();
     const rows = q
-      ? list.filter((s) => String(s.number) === q || s.title.toLowerCase().includes(q) ||
-          [...(s.verses || []), s.chorus || ""].join("\n").toLowerCase().includes(q))
+      ? list.filter((s) => String(s.number) === q || s.title.toLowerCase().includes(q) || lyricsOf(s).toLowerCase().includes(q))
       : list;
-    $("#hymnCount").textContent = q ? `${rows.length} of ${plural(list.length, "hymn")}` : plural(list.length, "hymn");
+    $("#hymnCount").textContent = q ? `${rows.length} of ${plural(list.length, "song")}` : plural(list.length, "song");
     $("#hymnList").innerHTML = rows.map((s) => `
-      <div class="row">
+      <button class="row row--tap" type="button" data-act="hymn-edit" data-n="${esc(s.number)}">
         <span class="num">${esc(s.number)}</span>
-        <div class="row__main"><b lang="${esc(code)}">${esc(s.title)}</b><span lang="${esc(code)}">${esc(firstLine(s))}</span></div>
-        <div class="row__acts">
-          <button class="btn btn--ghost btn--sm" type="button" data-act="hymn-edit" data-n="${esc(s.number)}">Edit</button>
-          <button class="btn btn--danger-ghost btn--sm" type="button" data-act="hymn-del" data-n="${esc(s.number)}" aria-label="Delete hymn ${esc(s.number)}">Delete</button>
-        </div>
-      </div>`).join("") || `<p class="empty">${q ? "No hymns match your search." : "No hymns in this language yet — add the first one."}</p>`;
+        <span class="row__main"><b lang="${esc(code)}">${esc(s.title)}</b><span lang="${esc(code)}">${esc(firstLine(s))}</span></span>
+        <span class="row__go" aria-hidden="true">Edit ›</span>
+      </button>`).join("") || `<p class="empty">${q ? "No songs match your search." : "No songs in this language yet — tap “Add a song”."}</p>`;
   }
 
   const stanzaBox = (text, i, lang, name = "verse") => `
@@ -444,69 +411,76 @@
       <button type="button" class="x-btn" data-act="stanza-del" aria-label="Remove">×</button>
     </div>`;
 
+  const nextNumber = (code) => Math.max(0, ...(D().songs[code] || []).map((s) => s.number)) + 1;
+
   function openHymnEditor(number) {
     const code = state.hymnLang;
     const song = number == null ? null : (D().songs[code] || []).find((s) => s.number === number);
-    const nextNo = Math.max(0, ...(D().songs[code] || []).map((s) => s.number)) + 1;
-    const s = song ? clone(song) : { number: nextNo, title: "", author: "", verses: [""], chorus: "" };
-    const verses = s.verses && s.verses.length ? s.verses : [""];
     openModal(`
-      <h2>${song ? `Edit hymn ${esc(song.number)}` : "Add hymn"}</h2>
-      <p>${esc(langName(code))}</p>
-      <form id="hymnForm" data-orig="${song ? esc(song.number) : ""}" novalidate>
+      <h2>${song ? "Change song" : "Add a song"}</h2>
+      <form id="hymnForm" data-orig="${song ? esc(song.number) : ""}" data-orig-lang="${esc(code)}" novalidate>
         <div class="grid2">
-          <label class="field"><span>Hymn number</span><input class="input" name="number" type="number" min="1" step="1" inputmode="numeric" value="${esc(s.number)}"></label>
-          <label class="field"><span>Author <small>(optional)</small></span><input class="input" name="author" value="${esc(s.author || "")}"></label>
+          <label class="field"><span>Language</span>
+            <select class="input" name="lang">${D().languages.map((l) => `<option value="${esc(l.code)}" ${l.code === code ? "selected" : ""}>${esc(l.native)} — ${esc(l.name)}</option>`).join("")}</select></label>
+          <label class="field"><span>Song number</span>
+            <input class="input" name="number" type="number" min="1" step="1" inputmode="numeric" value="${esc(song ? song.number : nextNumber(code))}"></label>
         </div>
-        <label class="field"><span>Title</span><input class="input" name="title" lang="${esc(code)}" value="${esc(s.title)}"></label>
-        <div class="field">
-          <span>Stanzas <small>— one box per stanza; press Enter for a new line</small></span>
-          <div id="stanzas" data-name="verse">${verses.map((v, i) => stanzaBox(v, i, code)).join("")}</div>
-          <div><button type="button" class="btn btn--ghost btn--sm" data-act="stanza-add">+ Add stanza</button></div>
-        </div>
-        <label class="field"><span>Chorus <small>(optional — shown after the first stanza)</small></span>
-          <textarea class="input" name="chorus" rows="4" lang="${esc(code)}">${esc(s.chorus || "")}</textarea></label>
+        <label class="field"><span>Song title</span>
+          <input class="input input--big" name="title" lang="${esc(code)}" value="${esc(song ? song.title : "")}" placeholder="Title of the song"></label>
+        <label class="field"><span>Lyrics <small>— type or paste the whole song: pallavi and every charanam together.
+          Leave one empty line between the parts.</small></span>
+          <textarea class="input lyrics-box" name="lyrics" rows="14" lang="${esc(code)}" placeholder="Pallavi line 1&#10;Pallavi line 2&#10;&#10;Charanam 1 line 1&#10;Charanam 1 line 2&#10;&#10;Charanam 2 line 1 …">${esc(song ? lyricsOf(song) : "")}</textarea></label>
         <p class="form-error" id="formError" role="alert" hidden></p>
         <div class="modal__acts">
-          ${song ? `<button type="button" class="btn btn--danger-ghost" data-act="hymn-del" data-n="${esc(song.number)}">Delete</button>` : ""}
+          ${song ? `<button type="button" class="btn btn--danger-ghost" data-act="hymn-del" data-n="${esc(song.number)}">Delete song</button>` : ""}
           <span class="grow"></span>
           <button type="button" class="btn btn--ghost" data-act="modal-close">Cancel</button>
-          <button class="btn btn--primary" type="submit">Save hymn</button>
+          <button class="btn btn--primary btn--wide" type="submit">Save song</button>
         </div>
       </form>`);
+    const form = $("#hymnForm");
+    // A new song gets the next free number of the language picked.
+    form.lang.addEventListener("change", () => {
+      form.title.lang = form.lyrics.lang = form.lang.value;
+      if (!song) form.number.value = nextNumber(form.lang.value);
+    });
   }
 
   function saveHymn(form) {
-    const code = state.hymnLang;
-    const list = D().songs[code] || (D().songs[code] = []);
+    const code = form.lang.value;
+    const origLang = form.dataset.origLang;
     const orig = form.dataset.orig ? Number(form.dataset.orig) : null;
+    const list = D().songs[code] || (D().songs[code] = []);
     const number = Number(form.number.value);
     const title = form.title.value.trim();
-    const verses = $$("textarea[name='verse']", form).map((t) => t.value.replace(/\s+$/g, "").replace(/^\s*\n/, "")).filter((v) => v.trim());
-    const chorus = form.chorus.value.trim();
-    const author = form.author.value.trim();
-    if (!Number.isInteger(number) || number < 1) return formError("Hymn number must be a whole number, 1 or more.");
-    if (list.some((s) => s.number === number && s.number !== orig)) return formError(`Hymn ${number} already exists in ${langName(code)}.`);
-    if (!title) return formError("Please enter the title.");
-    if (!verses.length && !chorus) return formError("Please enter at least one stanza or a chorus.");
+    // Tidy the words: no spaces at line ends, at most one empty line between parts.
+    const lyrics = form.lyrics.value.replace(/\r/g, "").split("\n").map((l) => l.replace(/\s+$/, ""))
+      .join("\n").replace(/\n{3,}/g, "\n\n").trim();
+    const moved = orig != null && code !== origLang;
+    if (!Number.isInteger(number) || number < 1) return formError("Song number must be a whole number, 1 or more.");
+    if (list.some((s) => s.number === number && (moved || s.number !== orig))) return formError(`Song ${number} already exists in ${langName(code)}. Use another number.`);
+    if (!title) return formError("Please type the song title.");
+    if (!lyrics) return formError("Please type the lyrics.");
+    const old = orig == null ? null : (D().songs[origLang] || []).find((s) => s.number === orig);
     const song = { number, title };
-    if (author) song.author = author;
-    song.verses = verses;
-    if (chorus) song.chorus = chorus;
-    const at = orig == null ? -1 : list.findIndex((s) => s.number === orig);
-    if (at >= 0) list[at] = song; else list.push(song);
+    if (old && old.author) song.author = old.author;
+    song.lyrics = lyrics;
+    if (old) D().songs[origLang] = D().songs[origLang].filter((s) => s !== old);
+    list.push(song);
     list.sort((a, b) => a.number - b.number);
+    state.hymnLang = code;
+    session.set("hymnLang", code);
     closeModal();
-    commit(orig == null ? `Hymn ${number} added` : `Hymn ${number} saved`);
+    commit(orig == null ? `Song ${number} added — open the app to see it` : `Song ${number} saved`);
   }
 
   function deleteHymn(number) {
     const code = state.hymnLang;
     const s = (D().songs[code] || []).find((x) => x.number === number);
-    if (!s || !window.confirm(`Delete hymn ${number} “${s.title}” from ${langName(code)}?`)) return;
+    if (!s || !window.confirm(`Delete song ${number} “${s.title}” from ${langName(code)}?`)) return;
     D().songs[code] = D().songs[code].filter((x) => x.number !== number);
     closeModal();
-    commit(`Hymn ${number} deleted`);
+    commit(`Song ${number} deleted`);
   }
 
   /* =========================================================
@@ -817,7 +791,7 @@
       now.forEach((s, n) => { if (!old.has(n)) add++; else if (!same(old.get(n), s)) edit++; });
       old.forEach((_, n) => { if (!now.has(n)) del++; });
       const bits = [add && `${add} added`, edit && `${edit} changed`, del && `${del} deleted`].filter(Boolean);
-      if (bits.length) out.push(`${name} hymns: ${bits.join(", ")}`);
+      if (bits.length) out.push(`${name} songs: ${bits.join(", ")}`);
       if (!same(L.covers[code], N.covers[code])) out.push(`${name} title page changed`);
     });
     if (!same(L.languages.map((l) => l.code).filter((c) => N.languages.some((l) => l.code === c)),
@@ -831,13 +805,18 @@
     const list = changed() ? changeList() : [];
     return `
       <div class="view-head"><div><h1>Publish</h1><p>Put your changes on the website for everyone.</p></div></div>
+      <div class="card card--pad card--note">
+        <h2>Just checking? You don't need GitHub</h2>
+        <p>Everything you change is saved on this device, and the app on this device shows it straight away —
+          <a href="../" target="_blank" rel="noopener">open the app</a> to check. Only other people's phones need publishing.</p>
+      </div>
 
       <div class="card card--pad">
         <h2>1 · GitHub connection</h2>
         ${state.token ? `
           <p>Connected to <b>${esc(REPO.owner)}/${esc(REPO.name)}</b>. ${local.get("token", null) ? "Remembered on this device." : "Only until you close this browser."}</p>
           <div class="modal__acts"><button class="btn btn--ghost btn--sm" type="button" data-act="gh-disconnect">Disconnect</button></div>` : `
-          <p>The website is stored on GitHub. To publish, this browser needs a GitHub key (“fine-grained token”) that can write to the hymn book. You do this once per device.</p>
+          <p>To show your changes to everyone, this browser needs a GitHub key (“fine-grained token”) that can write to the hymn book. You do this once per device.</p>
           <ol class="steps">
             <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub → New fine-grained token</a> (sign in as the owner of the website).</li>
             <li>Name it “Hymns admin”. Repository access: <b>Only select repositories → ${esc(REPO.name)}</b>.</li>
@@ -1030,8 +1009,6 @@
         t.setAttribute("aria-label", input.type === "password" ? "Show password" : "Hide password");
         break;
       }
-      case "goto-hymns": state.hymnLang = t.dataset.code; state.hymnQuery = ""; setTab("hymns"); break;
-      case "hymn-new-from-dash": setTab("hymns"); openHymnEditor(null); break;
       case "hymn-lang": state.hymnLang = t.dataset.code; state.hymnQuery = ""; session.set("hymnLang", state.hymnLang); render(); break;
       case "hymn-new": openHymnEditor(null); break;
       case "hymn-edit": openHymnEditor(n); break;
@@ -1106,7 +1083,7 @@
       return;
     }
     const name = session.get("user", null);
-    const user = name && findUser(state.adminsLive, name);
+    const user = name && (findUser(state.adminsLive, name) || findUser(state.adminsDraft, name));
     if (user) enter(user);
     else {
       $("#login").hidden = false;

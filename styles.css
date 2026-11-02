@@ -1663,6 +1663,7 @@ mark { background: rgba(233, 199, 102, .5); color: inherit; border-radius: 3px; 
   background: radial-gradient(circle at 35% 30%, #fff6d6 0%, #e9c766 55%, #c39a34 100%);
   box-shadow: 0 4px 10px -4px rgba(169, 127, 28, .85), inset 0 0 0 1px rgba(255, 255, 255, .55);
 }
+.stanza--plain { display: block; }
 .stanza__text,
 .chorus__text {
   margin: 0;
