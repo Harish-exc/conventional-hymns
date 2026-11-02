@@ -266,6 +266,8 @@ select.input { appearance: auto; }
 .x-btn:hover { background: #f0f2f6; color: var(--red); }
 
 .steps { margin: 10px 0 0; padding-left: 20px; color: var(--ink-2); font-size: 14px; line-height: 1.7; }
+.more { margin-top: 10px; font-size: 14px; }
+.more summary { cursor: pointer; font-weight: 600; color: var(--blue-700); }
 .changelist { margin: 8px 0 0; padding-left: 20px; font-size: 14px; line-height: 1.7; }
 .kv { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
 .kv:first-of-type { border-top: 0; }

@@ -130,7 +130,10 @@
 
   function ghError(e) {
     if (e.status === 401) return "GitHub did not accept the key. It may be wrong or expired — connect again with a new one.";
-    if (e.status === 403 || e.status === 404) return "This GitHub key can't write to the hymn book. Give it “Contents: Read and write” for the conventional-hymns repository.";
+    if (e.status === 403 || e.status === 404) {
+      return "GitHub won't let this key change the hymn book" + (e.message ? ` (GitHub says: “${e.message}”)` : "") +
+        ". Make a new key with the steps above — the easiest is a classic key with the “public_repo” box ticked.";
+    }
     if (e.status === 409) return "The website changed while you were publishing. Reload this page and publish again.";
     if (e.status === 422) return "GitHub refused the change: " + e.message;
     return "Couldn't reach GitHub (" + (e.message || "network error") + "). Check the internet connection and try again.";
@@ -817,12 +820,21 @@
           <p>Connected to <b>${esc(REPO.owner)}/${esc(REPO.name)}</b>. ${local.get("token", null) ? "Remembered on this device." : "Only until you close this browser."}</p>
           <div class="modal__acts"><button class="btn btn--ghost btn--sm" type="button" data-act="gh-disconnect">Disconnect</button></div>` : `
           <p>To show your changes to everyone, this browser needs a GitHub key (“fine-grained token”) that can write to the hymn book. You do this once per device.</p>
+          <p style="margin-top:10px"><b>Easiest way</b> (sign in to GitHub as ${esc(REPO.owner)}):</p>
           <ol class="steps">
-            <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub → New fine-grained token</a> (sign in as the owner of the website).</li>
-            <li>Name it “Hymns admin”. Repository access: <b>Only select repositories → ${esc(REPO.name)}</b>.</li>
-            <li>Permissions → Repository permissions → <b>Contents: Read and write</b>. Then <b>Generate token</b>.</li>
-            <li>Copy the token and paste it below.</li>
+            <li>Open <a href="https://github.com/settings/tokens/new?scopes=public_repo&description=Hymns%20admin" target="_blank" rel="noopener">GitHub → New classic token</a>.</li>
+            <li>Check that the <b>public_repo</b> box is ticked (this link ticks it for you). Pick an expiry, e.g. 90 days.</li>
+            <li>Press <b>Generate token</b> at the bottom, copy the key (starts with <b>ghp_</b>) and paste it below.</li>
           </ol>
+          <details class="more">
+            <summary>Or use a fine-grained key</summary>
+            <ol class="steps">
+              <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub → New fine-grained token</a>. Resource owner: <b>${esc(REPO.owner)}</b>.</li>
+              <li>Repository access: <b>Only select repositories → ${esc(REPO.name)}</b>.</li>
+              <li>Permissions → <b>Contents</b> → change “Read-only” to <b>Read and write</b> (it starts as Read-only).</li>
+              <li><b>Generate token</b>, copy the key (starts with <b>github_pat_</b>) and paste it below.</li>
+            </ol>
+          </details>
           <form id="ghForm" novalidate>
             <label class="field"><span>GitHub key</span><input class="input" name="token" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…"></label>
             <label class="check"><input type="checkbox" name="remember" checked> Remember on this device (only on your own phone or computer)</label>
@@ -859,11 +871,20 @@
 
   async function connect(form) {
     const token = form.token.value.trim();
-    if (!/^(github_pat_|ghp_|gho_|ghu_|ghs_)[\w]+$/.test(token)) return formError("That doesn't look like a GitHub key. It starts with “github_pat_”.");
+    if (!/^(github_pat_|ghp_|gho_|ghu_|ghs_)[\w]+$/.test(token)) return formError("That doesn't look like a GitHub key. It starts with “ghp_” or “github_pat_”.");
     const btn = form.querySelector("[type=submit]");
     btn.disabled = true;
     try {
-      await gh(`/contents/${FILES.book}?ref=${BRANCH}`, {}, token);
+      const cur = await gh(`/contents/${FILES.book}?ref=${BRANCH}`, {}, token);
+      // Check writing without changing anything: GitHub refuses an update with a wrong
+      // version id with 409 when the key may write, and 403/404 when it may not.
+      // (It sends the file's own content, so even an unexpected success changes nothing.)
+      try {
+        await gh(`/contents/${FILES.book}`, { method: "PUT", body: JSON.stringify({
+          message: "Check admin key", content: cur.content.replace(/\s/g, ""), sha: "0".repeat(40), branch: BRANCH }) }, token);
+      } catch (e) {
+        if (e.status !== 409 && e.status !== 422) throw e;
+      }
     } catch (e) {
       btn.disabled = false;
       return formError(ghError(e));
