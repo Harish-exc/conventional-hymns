@@ -8,6 +8,14 @@
       "iterations": 210000,
       "hash": "287fb9a561e3870c42059a2c75c3c24e6a7442121c6c9c1a0e473b6e9e523b6c",
       "created": "2026-11-02"
+    },
+    {
+      "username": "Phillips",
+      "role": "admin",
+      "salt": "e5252d4632d1c00cb308a91cd1710644",
+      "iterations": 210000,
+      "hash": "dc2f5c0091334711726c68b1addeae12e8eabadfaa9bd3d1c2f4e396ccb5177b",
+      "created": "2026-11-02"
     }
   ]
 }
