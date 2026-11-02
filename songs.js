@@ -202,6 +202,11 @@ window.HYMN_BOOK = {
         "number": 8,
         "title": "demo 8",
         "lyrics": "testing"
+      },
+      {
+        "number": 9,
+        "title": "Demo 9",
+        "lyrics": "Testing 9 times"
       }
     ],
     "or": [
