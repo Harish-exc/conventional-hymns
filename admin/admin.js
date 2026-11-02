@@ -131,8 +131,11 @@
   function ghError(e) {
     if (e.status === 401) return "GitHub did not accept the key. It may be wrong or expired — connect again with a new one.";
     if (e.status === 403 || e.status === 404) {
-      return "GitHub won't let this key change the hymn book" + (e.message ? ` (GitHub says: “${e.message}”)` : "") +
-        ". Make a new key with the steps above — the easiest is a classic key with the “public_repo” box ticked.";
+      const fineGrained = /personal access token/i.test(e.message || "");
+      return (fineGrained
+        ? "This key can read the hymn book but not change it — it is a fine-grained key without “Contents: Read and write”."
+        : "GitHub won't let this key change the hymn book" + (e.message ? ` (GitHub says: “${e.message}”)` : "") + ".") +
+        " Make a classic key with the link above (it ticks “public_repo” for you) and paste that instead.";
     }
     if (e.status === 409) return "The website changed while you were publishing. Reload this page and publish again.";
     if (e.status === 422) return "GitHub refused the change: " + e.message;
@@ -953,7 +956,8 @@
     } catch (e) {
       state.busy = false;
       if (!e.stopped) {
-        if (e.status === 401) { forgetToken(); setTab("publish"); }
+        // A refused key is dropped, so the box to paste a new one shows straight away.
+        if (e.status === 401 || e.status === 403 || e.status === 404) { forgetToken(); setTab("publish"); }
         const box = $("#formError2");
         if (box && state.tab === "publish") { box.textContent = ghError(e); box.hidden = false; }
         else window.alert(ghError(e));
