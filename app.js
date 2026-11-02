@@ -13,7 +13,17 @@
     } catch { /* no draft */ }
     return null;
   })();
-  const BOOK = DRAFT || window.HYMN_BOOK;
+  // Just published from this device: the website needs a minute to update, so keep
+  // showing what was published until songs.js has it (at most 15 minutes).
+  const PUBLISHED = (() => {
+    try {
+      const p = JSON.parse(localStorage.getItem("ch-admin:published"));
+      if (p && p.book && Date.now() - p.at < 15 * 60000 && JSON.stringify(p.book) !== JSON.stringify(window.HYMN_BOOK)) return p.book;
+      localStorage.removeItem("ch-admin:published");
+    } catch { /* nothing kept */ }
+    return null;
+  })();
+  const BOOK = DRAFT || PUBLISHED || window.HYMN_BOOK;
   const SETTINGS = BOOK.settings || {};
 
   const SPLASH_MS = Math.round(Math.min(15, Math.max(1, Number(SETTINGS.splashSeconds) || 5)) * 1000);   // front page

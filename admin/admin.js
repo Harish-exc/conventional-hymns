@@ -63,7 +63,7 @@
   /* ---------- state ---------- */
   const state = {
     user: null,
-    token: local.get("token", null) || session.get("token", null),
+    token: local.get("token", null) || session.get("token", null),   // entered once, kept on this device
     from: "site",
     sha: {},
     live: null, draft: null,
@@ -817,7 +817,7 @@
       <div class="card card--pad">
         <h2>1 · GitHub connection</h2>
         ${state.token ? `
-          <p>Connected to <b>${esc(REPO.owner)}/${esc(REPO.name)}</b>. ${local.get("token", null) ? "Remembered on this device." : "Only until you close this browser."}</p>
+          <p>Connected to <b>${esc(REPO.owner)}/${esc(REPO.name)}</b>. The key is saved on this device — you don't need to enter it again.</p>
           <div class="modal__acts"><button class="btn btn--ghost btn--sm" type="button" data-act="gh-disconnect">Disconnect</button></div>` : `
           <p>To show your changes to everyone, this browser needs a GitHub key (“fine-grained token”) that can write to the hymn book. You do this once per device.</p>
           <p style="margin-top:10px"><b>Easiest way</b> (sign in to GitHub as ${esc(REPO.owner)}):</p>
@@ -837,7 +837,7 @@
           </details>
           <form id="ghForm" novalidate>
             <label class="field"><span>GitHub key</span><input class="input" name="token" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_…"></label>
-            <label class="check"><input type="checkbox" name="remember" checked> Remember on this device (only on your own phone or computer)</label>
+            <p class="muted" style="margin:10px 0 0;font-size:13px">You enter it only once — it stays saved on this phone or computer.</p>
             <p class="form-error" id="formError" role="alert" hidden></p>
             <div class="modal__acts"><button class="btn btn--primary" type="submit">Connect</button></div>
           </form>`}
@@ -890,7 +890,7 @@
       return formError(ghError(e));
     }
     state.token = token;
-    if (form.remember.checked) local.set("token", token); else session.set("token", token);
+    local.set("token", token);
     toast("Connected to GitHub");
     // Pick up the exact file versions on GitHub, keeping any edits made so far.
     const draft = state.draft, adminsDraft = state.adminsDraft;
@@ -917,16 +917,18 @@
     session.del("token");
   }
 
-  async function publish(form) {
-    if (state.busy || !state.token || !changed()) return;
-    const err = $("#formError2");
-    err.hidden = true;
-    const note = form.message.value.trim();
+  // Publish everything changed, in one go. Used by the top bar's Publish (one tap)
+  // and by the Publish page.
+  async function publishNow(note = "") {
+    if (state.busy || !changed()) return;
+    if (!state.token) {
+      setTab("publish");
+      toast("Connect GitHub once — after that Publish works in one tap");
+      return;
+    }
     const message = (note || "Update hymn book") + ` (admin: ${state.user.username})`;
-    const btn = form.querySelector("[type=submit]");
     state.busy = true;
-    btn.disabled = true;
-    btn.textContent = "Publishing…";
+    setPublishing(true);
     try {
       const bookChanged = !same(state.draft, state.live);
       const adminsChanged = !same(state.adminsDraft, state.adminsLive);
@@ -935,6 +937,8 @@
         if (!same(parseBook(cur.text), state.live) &&
             !window.confirm("Someone else published hymn changes after you started.\n\nOK = publish yours anyway (their changes are replaced)\nCancel = stop")) throw Object.assign(new Error("stopped"), { stopped: true });
         await ghPut(FILES.book, songsJs(state.draft), cur.sha, message);
+        // The website takes a minute to update; until then this device keeps showing the new version.
+        local.set("published", { at: Date.now(), book: state.draft });
       }
       if (adminsChanged) {
         const cur = await ghGet(FILES.admins);
@@ -942,24 +946,39 @@
       }
       state.live = clone(state.draft);
       state.adminsLive = clone(state.adminsDraft);
+      state.busy = false;
       saveDraft();
       render();
-      toast("Published! The website updates in about a minute");
-      setTimeout(() => {
-        const box = document.createElement("p");
-        box.className = "form-ok";
-        box.textContent = "Published. The website updates in about 1–2 minutes; people get the new hymns the next time they open the app.";
-        const card = $("#publishForm");
-        if (card) card.after(box);
-      }, 50);
+      toast("Published! Everyone gets it in about a minute");
     } catch (e) {
-      if (!e.stopped) { err.textContent = ghError(e); err.hidden = false; }
-      if (e.status === 401) { forgetToken(); render(); }
+      state.busy = false;
+      if (!e.stopped) {
+        if (e.status === 401) { forgetToken(); setTab("publish"); }
+        const box = $("#formError2");
+        if (box && state.tab === "publish") { box.textContent = ghError(e); box.hidden = false; }
+        else window.alert(ghError(e));
+      }
     } finally {
       state.busy = false;
-      if (document.contains(btn)) { btn.disabled = false; btn.innerHTML = icon("upload") + "Publish to website"; }
+      setPublishing(false);
     }
   }
+
+  function setPublishing(on) {
+    $$("[data-act='publish-now'], #publishForm [type=submit]").forEach((b) => {
+      if (on) {
+        b.dataset.label = b.innerHTML;
+        b.disabled = true;
+        b.innerHTML = "Publishing…";
+      } else if (b.dataset.label) {     // only buttons this publish changed (the page may have re-drawn)
+        b.innerHTML = b.dataset.label;
+        delete b.dataset.label;
+        b.disabled = false;
+      }
+    });
+  }
+
+  const publish = (form) => publishNow(form.message.value.trim());
 
   function backup() {
     const data = { app: "Convention Hymns", exported: new Date().toISOString(), book: state.draft };
@@ -1062,6 +1081,7 @@
         if (window.confirm("Disconnect GitHub on this device? You can connect again any time.")) { forgetToken(); render(); toast("Disconnected"); }
         break;
       case "backup": backup(); break;
+      case "publish-now": publishNow(); break;
     }
   });
 
