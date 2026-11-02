@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "users": [
+    {
+      "username": "admin",
+      "role": "admin",
+      "salt": "6bd5232477e6c4055822b6886dcb5f0f",
+      "iterations": 210000,
+      "hash": "47b72ddc6d2875be20f0f5701dbc2f3ec63b75219f9c1909bdfc9af81b2beb56",
+      "created": "2026-11-02"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 /* =========================================================
-   Conventional Hymns — English pronunciation dictionary
+   Convention Hymns — English pronunciation dictionary
    ---------------------------------------------------------
    How each word in the English hymns is actually said, written
    as sounds (ARPAbet: AH = the "a" in "about", EY = "day",

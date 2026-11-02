@@ -1,18 +1,28 @@
 /* =========================================================
-   Conventional Hymns — app logic (no frameworks)
+   Convention Hymns — app logic (no frameworks)
    ========================================================= */
 (() => {
   "use strict";
 
-  const BOOK = window.HYMN_BOOK;
+  // ?preview opens the admin panel's unpublished changes (kept in this browser only).
+  const BOOK = (() => {
+    if (/[?&]preview\b/.test(location.search)) {
+      try {
+        const draft = JSON.parse(localStorage.getItem("ch-admin:draft"));
+        if (draft && Array.isArray(draft.languages) && draft.songs) return draft;
+      } catch { /* no draft */ }
+    }
+    return window.HYMN_BOOK;
+  })();
+  const SETTINGS = BOOK.settings || {};
 
-  const SPLASH_MS = 5000;   // how long the blue title page stays
+  const SPLASH_MS = Math.round(Math.min(15, Math.max(1, Number(SETTINGS.splashSeconds) || 5)) * 1000);   // front page
   const TURN_MS   = 1150;   // paper turn between pages
   const FLIP_MS   = 850;    // paper turn between hymns (prev / next)
   const PUSH_MS   = 420;    // list -> hymn slide
   const FADE_MS   = 260;    // reduced-motion fallback
   const STRIPS    = 12;     // the turning page is drawn as this many bending strips
-  const ORDER = ["splash", "intro", "cover", "languages", "songs", "song"];
+  const ORDER = ["splash", "intro", "cover", "languages", "songs", "song", "settings"];
 
   const root = document.documentElement;
   root.style.setProperty("--push-ms", PUSH_MS + "ms");
@@ -102,7 +112,6 @@
     prevNo: $("#prevNo"),
     nextNo: $("#nextNo"),
     progress: $("#songProgress"),
-    fontVal: $("#fontVal"),
     resume: $("#resume"),
     sheet: $("#sheet"),
     sheetPanel: $(".sheet__panel"),
@@ -131,6 +140,7 @@
     favs: store.get("favs", {}),
     recent: store.get("recent", {}),
     last: store.get("last", null),
+    singChanged: false,
     wakeLock: null
   };
 
@@ -349,12 +359,20 @@
      Routing (works with the phone's back button)
      ========================================================= */
   const depth = () => (history.state && history.state.depth) || 0;
-  const animFor = (a, b) => ((a === "songs" && b === "song") || (a === "song" && b === "songs") ? "push" : "turn");
+  const animFor = (a, b) =>
+    (a === "songs" && b === "song") || (a === "song" && b === "songs") || a === "settings" || b === "settings" ? "push" : "turn";
 
   function show(route, back, anim) {
+    // Back from Settings after picking another singing language: show that language's hymns.
+    if (state.page === "settings" && state.singChanged && (route.page === "songs" || route.page === "song")) {
+      route = { page: "songs", lang: state.lang };
+      history.replaceState({ ...route, depth: depth() }, "");
+    }
+    if (state.page === "settings") state.singChanged = false;
     if (route.lang && route.lang !== state.lang) setLanguage(route.lang);
-    if (route.page === "cover") renderCover(route.coverLang || state.coverLang);
+    if (route.page === "cover") renderCover(state.coverLang);
     if (route.page === "song") renderSong(route.index);
+    if (route.page === "settings") renderSettings();
     return transition(route.page, anim || animFor(state.page, route.page), back);
   }
 
@@ -394,7 +412,8 @@
     cover: () => ({ page: "intro" }),
     languages: () => ({ page: "cover", coverLang: state.coverLang }),
     songs: () => ({ page: "languages" }),
-    song: () => ({ page: "songs", lang: state.lang })
+    song: () => ({ page: "songs", lang: state.lang }),
+    settings: () => ({ page: "languages" })
   };
   const back = () => parentOf[state.page] && goBack(parentOf[state.page]());
 
@@ -506,7 +525,7 @@
       // The language's name as it is written in the script chosen on page 2
       const names = NAMES_IN_SCRIPT[state.pron];
       const lang = (PRON_TARGETS.find((p) => p.id === state.pron) || {}).lang;
-      const reads = names && Pronounce.scriptOfLang(l.code) !== state.pron
+      const reads = names && names[l.code] && Pronounce.scriptOfLang(l.code) !== state.pron
         ? `<span class="lang-card__pron" lang="${lang}">${esc(names[l.code])}</span>` : "";
       return `
         <button class="lang-card" type="button" data-lang="${esc(l.code)}" style="--i:${i + 1}">
@@ -529,6 +548,13 @@
     $("#heroStats").innerHTML =
       `<span lang="${uiLang}"><b>${BOOK.languages.length}</b> ${esc(u.languages)}</span><span lang="${uiLang}"><b>${total}</b> ${esc(u.hymns)}</span>` +
       (reading ? `<span class="hero__reading" lang="${uiLang}">${esc(u.reading)} <b lang="${reading.lang}">${esc(reading.label)}</b></span>` : "");
+  }
+
+  function renderNotice() {
+    const box = $("#notice");
+    const text = SETTINGS.noticeOn === false ? "" : String(SETTINGS.notice || "").trim();
+    box.hidden = !text;
+    box.innerHTML = text ? `<span class="notice__icon" aria-hidden="true">${icon("bell")}</span><p class="notice__text">${esc(text)}</p>` : "";
   }
 
   function markRecent() {
@@ -813,6 +839,7 @@
     renderSheet();
     renderResume();
     renderLanguages();
+    if (state.page === "settings") renderSettings();
   }
 
   /* =========================================================
@@ -864,7 +891,6 @@
     const own = Pronounce.scriptOfLang(state.lang);
     el.readRow.hidden = !own;
     if (own) el.sheetPron.innerHTML = pronChips(own, pronTarget());
-    el.fontVal.textContent = Math.round(state.scale * 100) + "%";
     el.fsRow.hidden = !document.fullscreenEnabled;
     el.fsToggle.setAttribute("aria-checked", String(!!document.fullscreenElement));
   }
@@ -898,6 +924,82 @@
   function toggleFullscreen() {
     const req = document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen();
     if (req && req.catch) req.catch(() => toast("Full screen isn't available here"));
+  }
+
+  /* =========================================================
+     Settings
+     ========================================================= */
+  const openSettings = () => { if (state.page !== "settings") go({ page: "settings" }, "push"); };
+
+  function optButtons(list, current, attr) {
+    return list.map((l) => `
+      <button class="set-opt${l.code === current ? " is-on" : ""}" type="button" ${attr}="${esc(l.code)}" aria-pressed="${l.code === current}">
+        <span class="set-opt__native" lang="${esc(l.code)}">${esc(l.native)}</span>
+        <span class="set-opt__en">${esc(l.name)}</span>
+      </button>`).join("");
+  }
+
+  function renderSettings() {
+    const singing = state.lang || store.get("lang", null);
+    $("#setAppLang").innerHTML = optButtons(BOOK.languages, state.coverLang, "data-set-app");
+    $("#setSingLang").innerHTML = optButtons(BOOK.languages, singing, "data-set-sing");
+    const t = state.pron === "off" ? null : PRON_TARGETS.find((p) => p.id === state.pron);
+    $("#setRead").innerHTML = [{ id: "off", label: "As written", lang: "en" }, ...PRON_TARGETS].map((p) => {
+      const on = (t ? t.id : "off") === p.id;
+      return `<button class="chip${on ? " is-on" : ""}" type="button" data-pron="${p.id}" lang="${p.lang}" aria-pressed="${on}">${esc(p.label)}</button>`;
+    }).join("");
+    $("#setNumeric").setAttribute("aria-checked", String(state.numeric));
+    $("#setFsRow").hidden = !document.fullscreenEnabled;
+    $("#setFs").setAttribute("aria-checked", String(!!document.fullscreenElement));
+    const favs = Object.values(state.favs).reduce((n, l) => n + l.length, 0);
+    const recent = Object.values(state.recent).reduce((n, l) => n + l.length, 0);
+    $("#setFavN").textContent = favs;
+    $("#setRecentN").textContent = recent;
+    $("#setClearFavs").disabled = !favs;
+    $("#setClearRecent").disabled = !recent;
+    const total = BOOK.languages.reduce((sum, l) => sum + (BOOK.songs[l.code] || []).length, 0);
+    $("#setAbout").textContent = `${BOOK.languages.length} languages · ${total} hymns`;
+    applyScale();
+  }
+
+  // The app language does everything the "Select Language" page does, without leaving Settings.
+  function setAppLanguage(code) {
+    state.coverLang = code;
+    store.set("coverLang", code);
+    renderIntro();
+    renderCover(code);
+    setPron(PRON_OF_LANG[code] || "off");
+    const lang = BOOK.languages.find((l) => l.code === code);
+    toast(`App language: ${lang ? lang.name : code}`);
+  }
+
+  function setSingingLanguage(code) {
+    if (code !== state.lang) { setLanguage(code); state.singChanged = true; }
+    renderSettings();
+    renderLanguages();
+    toast(`Singing language: ${state.langObj.name}`);
+  }
+
+  function clearSaved(kind) {
+    const what = kind === "favs" ? "all favorites" : "the recently opened list";
+    if (!window.confirm(`Clear ${what}?`)) return;
+    state[kind] = {};
+    store.set(kind, {});
+    if (kind === "recent") { state.last = null; store.set("last", null); renderResume(); }
+    if (state.lang) { updateFavUi(); renderList(); }
+    renderSettings();
+    toast(kind === "favs" ? "Favorites cleared" : "Recent list cleared");
+  }
+
+  function resetSettings() {
+    if (!window.confirm("Reset language, reading and text size settings?")) return;
+    state.scale = 1;
+    store.set("scale", 1);
+    state.numeric = false;
+    store.set("numeric", false);
+    applyKeypad();
+    setAppLanguage("or");
+    toast("Settings reset");
   }
 
   // Prev / next hymn: the page bends over like a real book page.
@@ -936,7 +1038,7 @@
     document.querySelectorAll("[data-font]").forEach((b) => {
       b.disabled = Number(b.dataset.font) < 0 ? state.scale <= 0.8 : state.scale >= 1.6;
     });
-    el.fontVal.textContent = Math.round(state.scale * 100) + "%";
+    document.querySelectorAll("[data-font-val]").forEach((o) => { o.textContent = Math.round(state.scale * 100) + "%"; });
   }
   function setScale(d) {
     state.scale = Math.round(Math.min(1.6, Math.max(0.8, state.scale + d)) * 10) / 10;
@@ -1064,8 +1166,43 @@
       if (chip) setPron(chip.dataset.pron);
     });
     el.fsToggle.addEventListener("click", toggleFullscreen);
-    document.addEventListener("fullscreenchange", () =>
-      el.fsToggle.setAttribute("aria-checked", String(!!document.fullscreenElement)));
+    document.addEventListener("fullscreenchange", () => {
+      el.fsToggle.setAttribute("aria-checked", String(!!document.fullscreenElement));
+      $("#setFs").setAttribute("aria-checked", String(!!document.fullscreenElement));
+    });
+
+    // Settings
+    document.addEventListener("click", (e) => {
+      if (e.target.closest("[data-settings]")) openSettings();
+      else if (e.target.closest("[data-sheet-settings]")) {
+        // from the reading sheet: replace its history entry with Settings
+        hideSheet();
+        history.replaceState({ page: "settings", depth: depth() }, "");
+        show({ page: "settings" }, false, "push");
+      }
+    });
+    pages.settings.addEventListener("click", (e) => {
+      const app = e.target.closest("[data-set-app]");
+      const sing = e.target.closest("[data-set-sing]");
+      const chip = e.target.closest("[data-pron]");
+      if (app) setAppLanguage(app.dataset.setApp);
+      else if (sing) setSingingLanguage(sing.dataset.setSing);
+      else if (chip) setPron(chip.dataset.pron);
+      else if (e.target.closest("#setNumeric")) {
+        state.numeric = !state.numeric;
+        store.set("numeric", state.numeric);
+        applyKeypad();
+        renderSettings();
+      }
+      else if (e.target.closest("#setFs")) toggleFullscreen();
+      else if (e.target.closest("#setClearFavs")) clearSaved("favs");
+      else if (e.target.closest("#setClearRecent")) clearSaved("recent");
+      else if (e.target.closest("#setReset")) resetSettings();
+      else if (e.target.closest("#setOpenHymns")) {
+        const code = state.lang || store.get("lang", null) || BOOK.languages[0].code;
+        go({ page: "songs", lang: code }, "push");
+      }
+    });
 
     // Song view
     el.lyrics.addEventListener("click", (e) => {
@@ -1156,15 +1293,56 @@
     show({ page: "song", lang: link.lang, index }, false, "turn");
   }
 
+  // After a refresh the browser still has this tab's last route in history.state:
+  // open that page straight away instead of starting again from the front page.
+  function savedRoute() {
+    const r = history.state;
+    if (!r || !r.page || r.page === "splash" || !pages[r.page]) return null;
+    const route = { ...r };
+    delete route.sheet;
+    const known = (code) => BOOK.languages.some((l) => l.code === code);
+    if (route.page === "songs" || route.page === "song") {
+      if (!known(route.lang)) return { page: "languages", depth: route.depth || 0 };
+      const n = (BOOK.songs[route.lang] || []).length;
+      if (route.page === "song" && !(route.index >= 0 && route.index < n)) return { page: "songs", lang: route.lang, depth: route.depth || 0 };
+    }
+    return route;
+  }
+
+  function openAt(route) {
+    history.replaceState(route, "");
+    pages.splash.classList.remove("is-active");
+    pages.splash.inert = true;
+    if (route.lang) setLanguage(route.lang);
+    if (route.page === "cover") renderCover(state.coverLang);
+    if (route.page === "song") renderSong(route.index);
+    if (route.page === "settings") renderSettings();
+    const to = pages[route.page];
+    to.inert = false;
+    to.classList.add("is-active");
+    state.page = route.page;
+    keepAwake(route.page === "song");
+    if (route.page === "cover" && document.fonts) document.fonts.ready.then(fitCover);
+  }
+
   function init() {
     splitTitle();
     ORDER.forEach((name) => { if (name !== "splash") pages[name].inert = true; });
     renderIntro();
     renderLanguages();
     renderResume();
+    renderNotice();
     applyScale();
     applyKeypad();
     bind();
+    if (document.fonts) {
+      document.fonts.ready.then(fitCover);
+      document.fonts.addEventListener("loadingdone", fitCover);
+    }
+    registerWorker();
+
+    const saved = savedRoute();
+    if (saved) { openAt(saved); return; }
 
     history.replaceState({ page: "splash", depth: 0 }, "");
     const link = linkedSong();
@@ -1193,12 +1371,10 @@
       });
       setTimeout(leaveSplash, remaining);
     });
-    if (document.fonts) {
-      document.fonts.ready.then(fitCover);
-      document.fonts.addEventListener("loadingdone", fitCover);
-    }
+  }
 
-    // Works offline and can be installed on the phone's home screen.
+  // Works offline and can be installed on the phone's home screen.
+  function registerWorker() {
     if ("serviceWorker" in navigator && location.protocol === "https:") {
       window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
     }

@@ -1,5 +1,5 @@
 /* =========================================================
-   Conventional Hymns — song data
+   Convention Hymns — song data
    ---------------------------------------------------------
    Add your hymns here. Each song:
      {

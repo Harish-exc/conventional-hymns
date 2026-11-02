@@ -1,18 +1,18 @@
-/* Conventional Hymns — offline support.
+/* Convention Hymns — offline support.
    When you change app files, bump the ?v= numbers in index.html
    and here, and change CACHE, so phones pick up the new version. */
-const CACHE = "ch-v23";
+const CACHE = "ch-v24";
 const CORE = [
   "./",
   "index.html",
-  "styles.css?v=22",
-  "songs.js?v=22",
-  "pronounce-en.js?v=22",
-  "pronounce.js?v=22",
-  "app.js?v=22",
-  "icon-192.png?v=6",
+  "styles.css?v=23",
+  "songs.js?v=23",
+  "pronounce-en.js?v=23",
+  "pronounce.js?v=23",
+  "app.js?v=23",
+  "icon-192.png?v=7",
   "logo.webp",
-  "manifest.webmanifest?v=6"
+  "manifest.webmanifest?v=7"
 ];
 
 self.addEventListener("install", (e) => {
@@ -29,6 +29,27 @@ self.addEventListener("activate", (e) => {
 
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
+  const url = new URL(e.request.url);
+
+  // The admin panel always talks to the network directly, and is never saved as the app page.
+  const fromAdmin = (e.request.referrer || "").includes("/admin/");
+  if (url.pathname.includes("/admin/") || fromAdmin || url.origin !== location.origin && url.hostname === "api.github.com") return;
+
+  // Hymn data: newest copy first (so published changes show up), saved copy offline.
+  if (url.origin === location.origin && url.pathname.endsWith("/songs.js")) {
+    e.respondWith(
+      fetch(e.request, { cache: "no-cache" })
+        .then((res) => {
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(e.request, copy));
+          }
+          return res;
+        })
+        .catch(() => caches.match(e.request))
+    );
+    return;
+  }
 
   // Pages: try the network first so updates show up, fall back to the saved copy offline.
   if (e.request.mode === "navigate") {

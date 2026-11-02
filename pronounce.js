@@ -1,5 +1,5 @@
 /* =========================================================
-   Conventional Hymns — pronunciation
+   Convention Hymns — pronunciation
    ---------------------------------------------------------
    Rewrites Telugu, Odia, Hindi/Marathi (Devanagari) and Bangla
    lyrics in English letters or in another Indian script, so a
